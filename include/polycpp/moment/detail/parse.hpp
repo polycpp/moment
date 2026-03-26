@@ -46,6 +46,7 @@
 #include <regex>
 #include <string>
 #include <vector>
+#include <polycpp/core/number.hpp>
 
 namespace polycpp {
 namespace moment {
@@ -88,7 +89,7 @@ inline int fracToMs(const std::string& frac) {
     // Pad or truncate to exactly 3 digits for milliseconds
     std::string s = frac;
     while (s.size() < 3) s += '0';
-    return std::stoi(s.substr(0, 3));
+    return polycpp::Number::parseInt(s.substr(0, 3));
 }
 
 // ── ISO 8601 parsing ─────────────────────────────────────────────────
@@ -143,26 +144,26 @@ inline ParsedComponents parseISO8601(const std::string& input) {
     }
 
     pc.valid = true;
-    pc.year = std::stoi(match[1].str());
+    pc.year = polycpp::Number::parseInt(match[1].str());
 
     if (match[2].matched) {
-        pc.month = std::stoi(match[2].str()) - 1; // Convert to 0-based
+        pc.month = polycpp::Number::parseInt(match[2].str()) - 1; // Convert to 0-based
     } else {
         pc.month = 0; // Default January
     }
 
     if (match[3].matched) {
-        pc.day = std::stoi(match[3].str());
+        pc.day = polycpp::Number::parseInt(match[3].str());
     }
 
     if (match[4].matched) {
-        pc.hour = std::stoi(match[4].str());
+        pc.hour = polycpp::Number::parseInt(match[4].str());
     }
     if (match[5].matched) {
-        pc.minute = std::stoi(match[5].str());
+        pc.minute = polycpp::Number::parseInt(match[5].str());
     }
     if (match[6].matched) {
-        pc.second = std::stoi(match[6].str());
+        pc.second = polycpp::Number::parseInt(match[6].str());
     }
     if (match[7].matched) {
         pc.millisecond = fracToMs(match[7].str());
@@ -178,8 +179,8 @@ inline ParsedComponents parseISO8601(const std::string& input) {
         // Offset found
         pc.has_offset = true;
         int sign = match[9].str() == "+" ? 1 : -1;
-        int hrs = std::stoi(match[10].str());
-        int mins = match[11].matched ? std::stoi(match[11].str()) : 0;
+        int hrs = polycpp::Number::parseInt(match[10].str());
+        int mins = match[11].matched ? polycpp::Number::parseInt(match[11].str()) : 0;
         pc.offset_minutes = sign * (hrs * 60 + mins);
     }
     // If no timezone info, it's treated as local time (per ISO 8601 spec).
@@ -237,19 +238,19 @@ inline ParsedComponents parseRFC2822(const std::string& input) {
     if (monthIdx < 0) return pc; // invalid month
 
     pc.valid = true;
-    pc.day = std::stoi(match[1].str());
+    pc.day = polycpp::Number::parseInt(match[1].str());
     pc.month = monthIdx;
-    pc.year = std::stoi(match[3].str());
-    pc.hour = std::stoi(match[4].str());
-    pc.minute = std::stoi(match[5].str());
+    pc.year = polycpp::Number::parseInt(match[3].str());
+    pc.hour = polycpp::Number::parseInt(match[4].str());
+    pc.minute = polycpp::Number::parseInt(match[5].str());
     if (match[6].matched) {
-        pc.second = std::stoi(match[6].str());
+        pc.second = polycpp::Number::parseInt(match[6].str());
     }
 
     if (match[7].matched) {
         pc.has_offset = true;
         int sign = match[7].str() == "+" ? 1 : -1;
-        pc.offset_minutes = sign * (std::stoi(match[8].str()) * 60 + std::stoi(match[9].str()));
+        pc.offset_minutes = sign * (polycpp::Number::parseInt(match[8].str()) * 60 + polycpp::Number::parseInt(match[9].str()));
     } else if (match[10].matched) {
         pc.has_offset = true;
         pc.offset_minutes = 0; // GMT/UTC/Z
@@ -279,7 +280,7 @@ inline bool matchNumber(const std::string& input, size_t& pos,
     }
     int count = static_cast<int>(end - start);
     if (count < minDigits) return false;
-    value = std::stoi(input.substr(start, count));
+    value = polycpp::Number::parseInt(input.substr(start, count));
     pos = end;
     return true;
 }
@@ -600,7 +601,7 @@ inline ParsedComponents parseWithFormat(const std::string& input,
             // If fewer than 3 digits were matched, adjust
             std::string orig = std::to_string(val);
             while (orig.size() < 3) orig += '0'; // right-pad
-            pc.millisecond = std::stoi(orig.substr(0, 3));
+            pc.millisecond = polycpp::Number::parseInt(orig.substr(0, 3));
         }
         else if (tok == "SS") {
             if (!matchNumber(input, pos, 1, 2, val)) { if (strict) return pc; continue; }
@@ -629,7 +630,7 @@ inline ParsedComponents parseWithFormat(const std::string& input,
             if (pos < input.size() && (input[pos] == '+' || input[pos] == '-')) ++pos;
             while (pos < input.size() && (std::isdigit(static_cast<unsigned char>(input[pos])) || input[pos] == '.')) ++pos;
             if (pos > start) {
-                double secs = std::stod(input.substr(start, pos - start));
+                double secs = polycpp::Number::parseFloat(input.substr(start, pos - start));
                 int64_t ms = static_cast<int64_t>(secs * 1000.0);
                 // Override all components: we'll create from timestamp directly
                 pc.year = 1970;
