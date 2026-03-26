@@ -267,6 +267,34 @@ inline Duration::Duration(const DurationInput& input)
     bubble();
 }
 
+inline Duration::Duration(const polycpp::JsonObject& obj)
+    : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
+      is_valid_(true), locale_key_("en") {
+
+    auto getInt = [&](const std::string& key, int def) -> int {
+        auto it = obj.find(key);
+        if (it != obj.end() && it->second.isNumber()) return it->second.asInt();
+        return def;
+    };
+
+    int years   = getInt("years", 0);
+    int months  = getInt("months", 0);
+    int weeks   = getInt("weeks", 0);
+    int days    = getInt("days", 0);
+    int hours   = getInt("hours", 0);
+    int minutes = getInt("minutes", 0);
+    int seconds = getInt("seconds", 0);
+    int ms      = getInt("milliseconds", 0);
+
+    raw_months_ = years * 12 + months;
+    raw_days_   = days + weeks * 7;
+    raw_milliseconds_ = static_cast<int64_t>(ms)
+                       + static_cast<int64_t>(seconds) * 1000LL
+                       + static_cast<int64_t>(minutes) * 60000LL
+                       + static_cast<int64_t>(hours) * 3600000LL;
+    bubble();
+}
+
 inline Duration Duration::clone() const {
     return *this;
 }
@@ -608,6 +636,18 @@ inline std::string Duration::toJSON() const {
     return toISOString();
 }
 
+inline polycpp::JsonObject Duration::toObject() const {
+    return polycpp::JsonObject{
+        {"years", years_},
+        {"months", months_},
+        {"days", days_},
+        {"hours", hours_},
+        {"minutes", minutes_},
+        {"seconds", seconds_},
+        {"milliseconds", milliseconds_}
+    };
+}
+
 inline int64_t Duration::valueOf() const {
     return static_cast<int64_t>(asMilliseconds());
 }
@@ -645,6 +685,10 @@ inline Duration duration(const std::string& iso_string) {
 
 inline Duration duration(const DurationInput& input) {
     return Duration(input);
+}
+
+inline Duration duration(const polycpp::JsonObject& obj) {
+    return Duration(obj);
 }
 
 } // namespace moment

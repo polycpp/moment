@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <polycpp/core/json.hpp>
 
 namespace polycpp {
 namespace moment {
@@ -62,6 +63,22 @@ public:
 
     /// @brief Construct from a DurationInput struct.
     explicit Duration(const DurationInput& input);
+
+    /**
+     * @brief Construct from a JsonObject with unit keys.
+     *
+     * Accepts keys: years, months, weeks, days, hours, minutes, seconds,
+     * milliseconds. Missing keys default to 0.
+     *
+     * @param obj JsonObject with duration component keys.
+     * @par Example
+     * @code
+     * Duration d(JsonObject{{"hours", 2}, {"minutes", 30}});
+     * @endcode
+     * @see https://momentjs.com/docs/#/durations/creating/
+     * @since 0.4.0
+     */
+    explicit Duration(const polycpp::JsonObject& obj);
 
     /// @brief Create a deep copy.
     Duration clone() const;
@@ -128,6 +145,14 @@ public:
     /// @brief Alias for toISOString() (JSON serialization).
     std::string toJSON() const;
 
+    /**
+     * @brief Get the duration components as a JsonObject.
+     * @return JsonObject with keys: years, months, days, hours, minutes, seconds, milliseconds.
+     * @see https://momentjs.com/docs/#/durations/as-object/
+     * @since 0.4.0
+     */
+    polycpp::JsonObject toObject() const;
+
     /// @brief Total milliseconds as integer (same as asMilliseconds cast).
     int64_t valueOf() const;
 
@@ -179,6 +204,19 @@ Duration duration(const std::string& iso_string);
 
 /// @brief Create a Duration from a DurationInput struct.
 Duration duration(const DurationInput& input);
+
+/**
+ * @brief Create a Duration from a JsonObject with unit keys.
+ * @param obj JsonObject with optional keys: years, months, weeks, days,
+ *            hours, minutes, seconds, milliseconds.
+ * @par Example
+ * @code
+ * auto d = moment::duration(JsonObject{{"years", 1}, {"months", 6}});
+ * @endcode
+ * @see https://momentjs.com/docs/#/durations/creating/
+ * @since 0.4.0
+ */
+Duration duration(const polycpp::JsonObject& obj);
 
 } // namespace moment
 } // namespace polycpp
