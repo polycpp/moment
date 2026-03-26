@@ -23,7 +23,8 @@
 #include <polycpp/moment/detail/units.hpp>
 #include <polycpp/moment/detail/locale.hpp>
 
-#include <cstdlib>
+#include <cmath>    // std::modf, std::fmod (no polycpp equivalent)
+#include <cstdlib>  // std::abs for integer types
 #include <regex>
 #include <sstream>
 #include <string>
