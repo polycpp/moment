@@ -3,7 +3,7 @@
  * @brief Moment class inline implementations.
  *
  * Contains all get/set, manipulation, and UTC/local mode logic.
- * Uses <ctime> functions for timestamp <-> component decomposition.
+ * Uses polycpp::Date for timestamp <-> component decomposition.
  *
  * @since 0.1.0
  */
@@ -13,14 +13,13 @@
 #include <polycpp/moment/units.hpp>
 #include <polycpp/moment/locale.hpp>
 #include <chrono>
-#include <ctime>
-#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
 #include <limits>
 #include <string>
 #include <variant>
+#include <polycpp/core/date.hpp>
 #include <polycpp/core/math.hpp>
 #include <polycpp/core/number.hpp>
 
@@ -47,15 +46,6 @@ inline int daysInMonth(int year, int month) {
 
 inline int daysInYear(int year) {
     return isLeapYear(year) ? 366 : 365;
-}
-
-/// @brief Portable timegm: convert struct tm (UTC) to time_t.
-inline time_t portableTimegm(struct tm* t) {
-#if defined(_WIN32)
-    return _mkgmtime(t);
-#else
-    return timegm(t);
-#endif
 }
 
 /// @brief Compute day of year (1-based) from year/month(0-based)/day(1-based).
@@ -174,31 +164,13 @@ inline void dayOfYearToMonthDay(int year, int doy, int& outMonth, int& outDay) {
 }
 
 /// @brief Compute the UTC offset of the local timezone for a given UTC timestamp (ms).
-/// Returns offset in minutes (e.g., EST = -300).
+/// Returns offset in minutes (e.g., EST = -300, IST = +330).
+/// Uses polycpp::Date::getTimezoneOffset() which returns UTC-local in minutes.
 inline int localUtcOffsetMinutes(int64_t timestamp_ms) {
-    time_t t = static_cast<time_t>(timestamp_ms / 1000);
-    struct tm local_tm;
-    struct tm utc_tm;
-    memset(&local_tm, 0, sizeof(local_tm));
-    memset(&utc_tm, 0, sizeof(utc_tm));
-    localtime_r(&t, &local_tm);
-    gmtime_r(&t, &utc_tm);
-
-    // Compute difference in seconds
-    int64_t local_sec = static_cast<int64_t>(local_tm.tm_hour) * 3600
-                      + static_cast<int64_t>(local_tm.tm_min) * 60
-                      + local_tm.tm_sec;
-    int64_t utc_sec = static_cast<int64_t>(utc_tm.tm_hour) * 3600
-                    + static_cast<int64_t>(utc_tm.tm_min) * 60
-                    + utc_tm.tm_sec;
-
-    // Handle day boundary crossing
-    int day_diff = local_tm.tm_yday - utc_tm.tm_yday;
-    if (day_diff > 1) day_diff = -1;   // year boundary: Dec 31 vs Jan 1
-    else if (day_diff < -1) day_diff = 1;
-
-    int64_t diff_sec = local_sec - utc_sec + day_diff * 86400LL;
-    return static_cast<int>(diff_sec / 60);
+    polycpp::Date d(static_cast<double>(timestamp_ms));
+    // getTimezoneOffset() returns minutes: UTC - local (positive = west of UTC)
+    // Our convention: offset = local - UTC (positive = east of UTC)
+    return -static_cast<int>(d.getTimezoneOffset());
 }
 
 /// @brief Parse a UTC offset string like "+05:30", "-0530", "+05", "Z" to minutes.
@@ -249,61 +221,63 @@ inline Moment::Moment(int64_t timestamp_ms) : timestamp_ms_(timestamp_ms) {}
 // ── Component decomposition ──────────────────────────────────────────
 
 inline Moment::DateComponents Moment::toComponents() const {
-    time_t t = static_cast<time_t>(timestamp_ms_ / 1000);
-    int ms_part = static_cast<int>(((timestamp_ms_ % 1000) + 1000) % 1000);
-
-    struct tm result;
-    std::memset(&result, 0, sizeof(result));
-
     if (is_utc_ || has_fixed_offset_) {
-        gmtime_r(&t, &result);
+        // For UTC or fixed offset: adjust timestamp by offset, decompose as UTC
+        double adjusted = static_cast<double>(timestamp_ms_);
         if (has_fixed_offset_ && !is_utc_) {
-            // Apply the fixed offset to get the "local" view
-            // But actually, has_fixed_offset_ means we interpret as UTC + offset
-            // The timestamp is always UTC. We adjust the components.
-            int offset_sec = utc_offset_minutes_ * 60;
-            time_t adjusted = t + offset_sec;
-            gmtime_r(&adjusted, &result);
-            // Adjust ms_part if needed — ms is not affected by offset
+            adjusted += static_cast<double>(utc_offset_minutes_) * 60000.0;
         }
+        polycpp::Date d(adjusted);
+        return {
+            static_cast<int>(d.getUTCFullYear()),
+            static_cast<int>(d.getUTCMonth()),
+            static_cast<int>(d.getUTCDate()),
+            static_cast<int>(d.getUTCHours()),
+            static_cast<int>(d.getUTCMinutes()),
+            static_cast<int>(d.getUTCSeconds()),
+            static_cast<int>(d.getUTCMilliseconds())
+        };
     } else {
-        localtime_r(&t, &result);
+        // For local time: decompose using local getters
+        polycpp::Date d(static_cast<double>(timestamp_ms_));
+        return {
+            static_cast<int>(d.getFullYear()),
+            static_cast<int>(d.getMonth()),
+            static_cast<int>(d.getDate()),
+            static_cast<int>(d.getHours()),
+            static_cast<int>(d.getMinutes()),
+            static_cast<int>(d.getSeconds()),
+            static_cast<int>(d.getMilliseconds())
+        };
     }
-
-    DateComponents c;
-    c.year = result.tm_year + 1900;
-    c.month = result.tm_mon;   // 0-11, same as moment.js
-    c.day = result.tm_mday;    // 1-31
-    c.hour = result.tm_hour;   // 0-23
-    c.minute = result.tm_min;  // 0-59
-    c.second = result.tm_sec;  // 0-59
-    c.ms = ms_part;
-    return c;
 }
 
 inline void Moment::fromComponents(const DateComponents& c) {
-    struct tm t;
-    std::memset(&t, 0, sizeof(t));
-    t.tm_year = c.year - 1900;
-    t.tm_mon = c.month;
-    t.tm_mday = c.day;
-    t.tm_hour = c.hour;
-    t.tm_min = c.minute;
-    t.tm_sec = c.second;
-    t.tm_isdst = -1; // let mktime figure it out
-
-    time_t epoch;
     if (is_utc_ || has_fixed_offset_) {
-        epoch = detail::portableTimegm(&t);
+        // Build UTC timestamp from components using Date::UTC()
+        double utc_ms = polycpp::Date::UTC(c.year, c.month, c.day,
+                                            c.hour, c.minute, c.second, c.ms);
+        // Date::UTC maps years 0-99 to 1900-1999 per ES spec.
+        // moment.js treats these as literal years, so correct if needed.
+        if (c.year >= 0 && c.year <= 99) {
+            polycpp::Date temp(utc_ms);
+            temp.setUTCFullYear(c.year);
+            utc_ms = temp.getTime();
+        }
+        timestamp_ms_ = static_cast<int64_t>(utc_ms);
         if (has_fixed_offset_ && !is_utc_) {
             // Components were in offset time, so subtract offset to get UTC
-            epoch -= utc_offset_minutes_ * 60;
+            timestamp_ms_ -= static_cast<int64_t>(utc_offset_minutes_) * 60000LL;
         }
     } else {
-        epoch = mktime(&t);
+        // Build local timestamp using Date constructor (local time)
+        polycpp::Date d(c.year, c.month, c.day, c.hour, c.minute, c.second, c.ms);
+        // Same year 0-99 correction for local time
+        if (c.year >= 0 && c.year <= 99) {
+            d.setFullYear(c.year);
+        }
+        timestamp_ms_ = static_cast<int64_t>(d.getTime());
     }
-
-    timestamp_ms_ = static_cast<int64_t>(epoch) * 1000 + c.ms;
 }
 
 // ── Get/Set: Year ────────────────────────────────────────────────────
@@ -414,7 +388,7 @@ inline Moment& Moment::dayOfYear(int value) {
     auto c = toComponents();
     // Set to Jan 1 of same year, then add (value-1) days
     c.month = 0;
-    c.day = value; // struct tm / timegm handles overflow
+    c.day = value; // polycpp::Date handles overflow normalization
     fromComponents(c);
     return *this;
 }
