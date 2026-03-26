@@ -15,12 +15,14 @@
 #include <chrono>
 #include <ctime>
 #include <cstring>
-#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <algorithm>
 #include <limits>
 #include <string>
 #include <variant>
+#include <polycpp/core/math.hpp>
+#include <polycpp/core/number.hpp>
 
 namespace polycpp {
 namespace moment {
@@ -112,7 +114,7 @@ struct WeekResult {
 /// @param doy First week threshold.
 inline WeekResult weekOfYear(int momYear, int momDayOfYear, int dow, int doy) {
     int weekOffset = firstWeekOffset(momYear, dow, doy);
-    int week = static_cast<int>(std::floor(static_cast<double>(momDayOfYear - weekOffset - 1) / 7.0)) + 1;
+    int week = static_cast<int>(polycpp::Math::floor(static_cast<double>(momDayOfYear - weekOffset - 1) / 7.0)) + 1;
     int resWeek, resYear;
 
     if (week < 1) {
@@ -218,13 +220,13 @@ inline int parseOffsetString(const std::string& s) {
     }
 
     if (clean.size() <= 2) {
-        hours = std::stoi(clean);
+        hours = polycpp::Number::parseInt(clean);
     } else if (clean.size() == 3) {
-        hours = std::stoi(clean.substr(0, 1));
-        minutes = std::stoi(clean.substr(1, 2));
+        hours = polycpp::Number::parseInt(clean.substr(0, 1));
+        minutes = polycpp::Number::parseInt(clean.substr(1, 2));
     } else if (clean.size() >= 4) {
-        hours = std::stoi(clean.substr(0, 2));
-        minutes = std::stoi(clean.substr(2, 2));
+        hours = polycpp::Number::parseInt(clean.substr(0, 2));
+        minutes = polycpp::Number::parseInt(clean.substr(2, 2));
     }
 
     return sign * (hours * 60 + minutes);
@@ -1063,7 +1065,7 @@ inline double Moment::diff(const Moment& other, const std::string& unit, bool pr
 
     if (!precise) {
         // Truncate toward zero (not floor)
-        output = (output >= 0) ? std::floor(output) : std::ceil(output);
+        output = polycpp::Math::trunc(output);
     }
 
     return output;
@@ -1129,12 +1131,12 @@ inline std::string computeRelativeTime(int64_t ms_duration, bool withoutSuffix,
     int64_t abs_ms = std::abs(ms_duration);
 
     // Compute rounded values in each unit
-    int seconds = static_cast<int>(std::round(static_cast<double>(abs_ms) / 1000.0));
-    int minutes = static_cast<int>(std::round(static_cast<double>(abs_ms) / 60000.0));
-    int hours   = static_cast<int>(std::round(static_cast<double>(abs_ms) / 3600000.0));
-    int days    = static_cast<int>(std::round(static_cast<double>(abs_ms) / 86400000.0));
-    int months  = static_cast<int>(std::round(static_cast<double>(days) / 30.4375));
-    int years   = static_cast<int>(std::round(static_cast<double>(months) / 12.0));
+    int seconds = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 1000.0));
+    int minutes = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 60000.0));
+    int hours   = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 3600000.0));
+    int days    = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 86400000.0));
+    int months  = static_cast<int>(polycpp::Math::round(static_cast<double>(days) / 30.4375));
+    int years   = static_cast<int>(polycpp::Math::round(static_cast<double>(months) / 12.0));
 
     // Look up thresholds
     double th_ss = relativeTimeThreshold("ss");
