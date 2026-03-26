@@ -54,4 +54,8 @@ if(POLYCPP_MOMENT_BUILD_TESTS)
     add_executable(test_locale tests/test_locale.cpp)
     target_link_libraries(test_locale PRIVATE polycpp_moment GTest::gtest_main)
     gtest_discover_tests(test_locale)
+
+    add_executable(test_moment tests/test_moment.cpp)
+    target_link_libraries(test_moment PRIVATE polycpp_moment GTest::gtest_main)
+    gtest_discover_tests(test_moment)
 endif()
