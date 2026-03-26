@@ -46,4 +46,12 @@ if(POLYCPP_MOMENT_BUILD_TESTS)
     target_link_libraries(test_moment_basic PRIVATE polycpp_moment GTest::gtest_main)
     include(GoogleTest)
     gtest_discover_tests(test_moment_basic)
+
+    add_executable(test_units tests/test_units.cpp)
+    target_link_libraries(test_units PRIVATE polycpp_moment GTest::gtest_main)
+    gtest_discover_tests(test_units)
+
+    add_executable(test_locale tests/test_locale.cpp)
+    target_link_libraries(test_locale PRIVATE polycpp_moment GTest::gtest_main)
+    gtest_discover_tests(test_locale)
 endif()
