@@ -23,12 +23,13 @@
 #include <polycpp/moment/detail/units.hpp>
 #include <polycpp/moment/detail/locale.hpp>
 
-#include <cmath>
 #include <cstdlib>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <variant>
+#include <polycpp/core/math.hpp>
+#include <polycpp/core/number.hpp>
 
 namespace polycpp {
 namespace moment {
@@ -46,21 +47,19 @@ inline double monthsToDays(double months) {
     return months * 146097.0 / 4800.0;
 }
 
-/// @brief Floor toward zero (like Math.trunc but for negative numbers, floors toward zero).
+/// @brief Floor toward zero (equivalent to Math::trunc).
 inline int64_t absFloor(double x) {
-    return static_cast<int64_t>(x >= 0 ? std::floor(x) : std::ceil(x));
+    return static_cast<int64_t>(polycpp::Math::trunc(x));
 }
 
 /// @brief Ceil away from zero.
 inline int64_t absCeil(double x) {
-    return static_cast<int64_t>(x >= 0 ? std::ceil(x) : std::floor(x));
+    return static_cast<int64_t>(x >= 0 ? polycpp::Math::ceil(x) : polycpp::Math::floor(x));
 }
 
-/// @brief Sign function matching moment.js: returns -1, 0, or 1.
+/// @brief Sign function: returns -1, 0, or 1.
 inline int sign(double x) {
-    if (x > 0) return 1;
-    if (x < 0) return -1;
-    return 0;
+    return static_cast<int>(polycpp::Math::sign(x));
 }
 
 /// @brief Format a RelativeTimeValue with a number, producing a human string.
@@ -228,7 +227,7 @@ inline Duration::Duration(const std::string& iso_string)
         std::string s = match[group].str();
         // Replace comma with dot for decimal support
         for (auto& c : s) { if (c == ',') c = '.'; }
-        double val = std::stod(s);
+        double val = polycpp::Number::parseFloat(s);
         return val * signMul;
     };
 
@@ -243,13 +242,13 @@ inline Duration::Duration(const std::string& iso_string)
     // Split fractional seconds into seconds + milliseconds
     double int_s = 0;
     double frac_s = std::modf(s_val, &int_s);
-    int ms_from_frac = static_cast<int>(std::round(frac_s * 1000.0));
+    int ms_from_frac = static_cast<int>(polycpp::Math::round(frac_s * 1000.0));
 
     raw_months_ = static_cast<int>(y) * 12 + static_cast<int>(M);
     raw_days_ = static_cast<int>(d) + static_cast<int>(w) * 7;
     raw_milliseconds_ = static_cast<int64_t>(int_s) * 1000LL
-                       + static_cast<int64_t>(std::round(h * 3600000.0))
-                       + static_cast<int64_t>(std::round(m * 60000.0))
+                       + static_cast<int64_t>(polycpp::Math::round(h * 3600000.0))
+                       + static_cast<int64_t>(polycpp::Math::round(m * 60000.0))
                        + ms_from_frac;
 
     bubble();
@@ -388,13 +387,13 @@ inline std::string Duration::humanize(bool withSuffix) const {
 
     // Compute totals using as() for each unit
     double totalMs = asMilliseconds();
-    int absSec    = static_cast<int>(std::round(std::abs(as("s"))));
-    int absMin    = static_cast<int>(std::round(std::abs(as("m"))));
-    int absHour   = static_cast<int>(std::round(std::abs(as("h"))));
-    int absDay    = static_cast<int>(std::round(std::abs(as("d"))));
-    int absMonth  = static_cast<int>(std::round(std::abs(as("M"))));
-    int absWeek   = static_cast<int>(std::round(std::abs(as("w"))));
-    int absYear   = static_cast<int>(std::round(std::abs(as("y"))));
+    int absSec    = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("s"))));
+    int absMin    = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("m"))));
+    int absHour   = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("h"))));
+    int absDay    = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("d"))));
+    int absMonth  = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("M"))));
+    int absWeek   = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("w"))));
+    int absYear   = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("y"))));
 
     bool isFuture = totalMs > 0;
 
@@ -523,7 +522,7 @@ inline double Duration::as(const std::string& unit) const {
     }
 
     // For all other units, convert months to days then compute
-    double days = raw_days_ + std::round(detail::monthsToDays(raw_months_));
+    double days = raw_days_ + polycpp::Math::round(detail::monthsToDays(raw_months_));
     double ms = raw_milliseconds_;
     switch (u) {
         case Unit::Week:
@@ -538,7 +537,7 @@ inline double Duration::as(const std::string& unit) const {
         case Unit::Second:
             return days * 86400.0 + ms / 1000.0;
         case Unit::Millisecond:
-            return std::floor(days * 86400000.0) + ms;
+            return polycpp::Math::floor(days * 86400000.0) + ms;
         default:
             return 0.0;
     }
@@ -565,7 +564,7 @@ inline std::string Duration::toISOString() const {
     //   - milliseconds bubble up to hours (but not to days)
     //   - months bubble up to years (12 months -> 1 year)
     //   - days do not bubble at all
-    double absMs = std::abs(static_cast<double>(raw_milliseconds_));
+    double absMs = polycpp::Math::abs(static_cast<double>(raw_milliseconds_));
     int absDays = std::abs(raw_days_);
     int absMonths = std::abs(raw_months_);
 
