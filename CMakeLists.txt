@@ -78,4 +78,8 @@ if(POLYCPP_MOMENT_BUILD_TESTS)
     add_executable(test_query tests/test_query.cpp)
     target_link_libraries(test_query PRIVATE polycpp_moment GTest::gtest_main)
     gtest_discover_tests(test_query)
+
+    add_executable(test_json_integration tests/test_json_integration.cpp)
+    target_link_libraries(test_json_integration PRIVATE polycpp_moment GTest::gtest_main)
+    gtest_discover_tests(test_json_integration)
 endif()
