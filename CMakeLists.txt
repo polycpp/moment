@@ -7,10 +7,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
-# Fetch polycpp
+# Fetch polycpp (disable its tests when building as a dependency)
+set(POLYCPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
     polycpp
-    GIT_REPOSITORY https://github.com/enricohuang/polycpp.git
+    GIT_REPOSITORY git@github.com:enricohuang/polycpp.git
     GIT_TAG        master
     GIT_SHALLOW    TRUE
 )
@@ -20,7 +22,7 @@ FetchContent_MakeAvailable(polycpp)
 add_library(polycpp_moment
     src/moment.cpp
 )
-target_link_libraries(polycpp_moment PUBLIC polycpp::polycpp)
+target_link_libraries(polycpp_moment PUBLIC polycpp)
 target_include_directories(polycpp_moment PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
@@ -35,7 +37,7 @@ if(POLYCPP_MOMENT_BUILD_TESTS)
     enable_testing()
     FetchContent_Declare(
         googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_REPOSITORY git@github.com:google/googletest.git
         GIT_TAG        v1.15.2
     )
     FetchContent_MakeAvailable(googletest)
