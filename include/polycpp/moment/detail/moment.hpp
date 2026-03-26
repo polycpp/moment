@@ -1313,9 +1313,22 @@ inline std::string Moment::toString() const {
     return std::string(buf);
 }
 
-inline std::array<int, 7> Moment::toArray() const {
+inline polycpp::JsonArray Moment::toArray() const {
     auto c = toComponents();
-    return {{c.year, c.month, c.day, c.hour, c.minute, c.second, c.ms}};
+    return polycpp::JsonArray{c.year, c.month, c.day, c.hour, c.minute, c.second, c.ms};
+}
+
+inline polycpp::JsonObject Moment::toObject() const {
+    auto c = toComponents();
+    return polycpp::JsonObject{
+        {"years", c.year},
+        {"months", c.month},
+        {"date", c.day},
+        {"hours", c.hour},
+        {"minutes", c.minute},
+        {"seconds", c.second},
+        {"milliseconds", c.ms}
+    };
 }
 
 // ── Query: isBefore / isAfter / isSame / isBetween ──────────────────
@@ -1443,6 +1456,46 @@ inline int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()
     ).count();
+}
+
+// ── JsonObject construction ─────────────────────────────────────────
+
+namespace detail {
+
+/// @brief Extract an int from a JsonObject, trying two key names with a default.
+inline int jsonGetInt(const polycpp::JsonObject& obj,
+                      const std::string& key1, const std::string& key2, int def) {
+    auto it = obj.find(key1);
+    if (it != obj.end() && it->second.isNumber()) return it->second.asInt();
+    it = obj.find(key2);
+    if (it != obj.end() && it->second.isNumber()) return it->second.asInt();
+    return def;
+}
+
+} // namespace detail
+
+inline Moment fromObject(const polycpp::JsonObject& obj) {
+    int year  = detail::jsonGetInt(obj, "year",        "years",        2000);
+    int month = detail::jsonGetInt(obj, "month",       "months",       0);
+    int day   = detail::jsonGetInt(obj, "date",        "day",          1);
+    int hour  = detail::jsonGetInt(obj, "hour",        "hours",        0);
+    int min   = detail::jsonGetInt(obj, "minute",      "minutes",      0);
+    int sec   = detail::jsonGetInt(obj, "second",      "seconds",      0);
+    int ms    = detail::jsonGetInt(obj, "millisecond", "milliseconds", 0);
+
+    return fromDate(year, month, day, hour, min, sec, ms);
+}
+
+inline Moment utcFromObject(const polycpp::JsonObject& obj) {
+    int year  = detail::jsonGetInt(obj, "year",        "years",        2000);
+    int month = detail::jsonGetInt(obj, "month",       "months",       0);
+    int day   = detail::jsonGetInt(obj, "date",        "day",          1);
+    int hour  = detail::jsonGetInt(obj, "hour",        "hours",        0);
+    int min   = detail::jsonGetInt(obj, "minute",      "minutes",      0);
+    int sec   = detail::jsonGetInt(obj, "second",      "seconds",      0);
+    int ms    = detail::jsonGetInt(obj, "millisecond", "milliseconds", 0);
+
+    return utcFromDate(year, month, day, hour, min, sec, ms);
 }
 
 } // namespace moment

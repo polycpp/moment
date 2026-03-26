@@ -7,9 +7,9 @@
 
 #include <cstdint>
 #include <string>
-#include <array>
 #include <vector>
 #include <chrono>
+#include <polycpp/core/json.hpp>
 
 namespace polycpp {
 namespace moment {
@@ -266,11 +266,25 @@ public:
     std::string toString() const;
 
     /**
-     * @brief Get the date components as an array.
-     * @return Array of {year, month, date, hour, minute, second, millisecond}.
+     * @brief Get the date components as a JsonArray.
+     * @return JsonArray: [year, month, day, hour, minute, second, millisecond].
+     * @see https://momentjs.com/docs/#/displaying/as-array/
      * @since 0.3.0
      */
-    std::array<int, 7> toArray() const;
+    polycpp::JsonArray toArray() const;
+
+    /**
+     * @brief Get the date components as a JsonObject.
+     * @return JsonObject with keys: years, months, date, hours, minutes, seconds, milliseconds.
+     * @par Example
+     * @code
+     * auto obj = moment::utcFromDate(2024, 2, 15, 14, 30, 45, 123).toObject();
+     * // obj["years"].asInt() == 2024, obj["months"].asInt() == 2, obj["date"].asInt() == 15
+     * @endcode
+     * @see https://momentjs.com/docs/#/displaying/as-object/
+     * @since 0.4.0
+     */
+    polycpp::JsonObject toObject() const;
 
     // ── Query ────────────────────────────────────────────────────────
 
@@ -643,6 +657,37 @@ Moment min(const std::vector<Moment>& moments);
  * @since 0.2.0
  */
 Moment max(const std::vector<Moment>& moments);
+
+/**
+ * @brief Create a local Moment from a JsonObject with date component keys.
+ *
+ * Accepts both singular and plural key forms (e.g. "year" or "years").
+ * Missing keys default to: year=2000, month=0, date=1, others=0.
+ *
+ * @param obj JsonObject with optional keys: year/years, month/months,
+ *            day/date, hour/hours, minute/minutes, second/seconds,
+ *            millisecond/milliseconds
+ * @return Moment constructed from the specified components in local time.
+ * @par Example
+ * @code
+ * auto m = moment::fromObject(JsonObject{{"year", 2024}, {"month", 2}, {"date", 15}});
+ * @endcode
+ * @see https://momentjs.com/docs/#/parsing/object/
+ * @since 0.4.0
+ */
+Moment fromObject(const polycpp::JsonObject& obj);
+
+/**
+ * @brief Create a UTC Moment from a JsonObject with date component keys.
+ *
+ * Same key semantics as fromObject(), but the resulting Moment is in UTC mode.
+ *
+ * @param obj JsonObject with optional date component keys.
+ * @return Moment constructed from the specified components in UTC.
+ * @see https://momentjs.com/docs/#/parsing/object/
+ * @since 0.4.0
+ */
+Moment utcFromObject(const polycpp::JsonObject& obj);
 
 } // namespace moment
 } // namespace polycpp

@@ -241,13 +241,14 @@ TEST(DisplayTest, ToStringInvalid) {
 TEST(DisplayTest, ToArray) {
     auto m = Moment::InternalAccess::fromUtcComponents(2024, 2, 15, 14, 30, 45, 123);
     auto arr = m.toArray();
-    EXPECT_EQ(arr[0], 2024);  // year
-    EXPECT_EQ(arr[1], 2);     // month (0-based)
-    EXPECT_EQ(arr[2], 15);    // day
-    EXPECT_EQ(arr[3], 14);    // hour
-    EXPECT_EQ(arr[4], 30);    // minute
-    EXPECT_EQ(arr[5], 45);    // second
-    EXPECT_EQ(arr[6], 123);   // ms
+    EXPECT_EQ(arr.size(), 7u);
+    EXPECT_EQ(arr[0].asInt(), 2024);  // year
+    EXPECT_EQ(arr[1].asInt(), 2);     // month (0-based)
+    EXPECT_EQ(arr[2].asInt(), 15);    // day
+    EXPECT_EQ(arr[3].asInt(), 14);    // hour
+    EXPECT_EQ(arr[4].asInt(), 30);    // minute
+    EXPECT_EQ(arr[5].asInt(), 45);    // second
+    EXPECT_EQ(arr[6].asInt(), 123);   // ms
 }
 
 TEST(DisplayTest, Unix) {
