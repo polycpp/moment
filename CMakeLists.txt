@@ -1,0 +1,47 @@
+cmake_minimum_required(VERSION 3.20)
+project(polycpp_moment VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+include(FetchContent)
+
+# Fetch polycpp
+FetchContent_Declare(
+    polycpp
+    GIT_REPOSITORY https://github.com/enricohuang/polycpp.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(polycpp)
+
+# Library target
+add_library(polycpp_moment
+    src/moment.cpp
+)
+target_link_libraries(polycpp_moment PUBLIC polycpp::polycpp)
+target_include_directories(polycpp_moment PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# Alias for consistent naming
+add_library(polycpp::moment ALIAS polycpp_moment)
+
+# Tests
+option(POLYCPP_MOMENT_BUILD_TESTS "Build tests" ON)
+if(POLYCPP_MOMENT_BUILD_TESTS)
+    enable_testing()
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.15.2
+    )
+    FetchContent_MakeAvailable(googletest)
+
+    add_executable(test_moment_basic tests/test_moment_basic.cpp)
+    target_link_libraries(test_moment_basic PRIVATE polycpp_moment GTest::gtest_main)
+    include(GoogleTest)
+    gtest_discover_tests(test_moment_basic)
+endif()
