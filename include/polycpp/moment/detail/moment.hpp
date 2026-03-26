@@ -16,8 +16,11 @@
 #include <ctime>
 #include <cstring>
 #include <cmath>
+#include <cstdio>
 #include <algorithm>
+#include <limits>
 #include <string>
+#include <variant>
 
 namespace polycpp {
 namespace moment {
@@ -982,6 +985,443 @@ inline bool Moment::isUtcOffset() const {
 }
 
 inline Moment Moment::clone() const { return *this; }
+
+// ── Display: diff ────────────────────────────────────────────────────
+
+namespace detail {
+
+/// @brief Month-based diff matching moment.js monthDiff algorithm.
+inline double monthDiff(Moment a, Moment b) {
+    // If a.date() < b.date(), negate the result of swapped args
+    if (a.date() < b.date()) {
+        return -monthDiff(b, a);
+    }
+
+    int wholeMonthDiff = (b.year() - a.year()) * 12 + (b.month() - a.month());
+    Moment anchor = a.clone().add(wholeMonthDiff, "months");
+
+    double adjust;
+    if (b.valueOf() - anchor.valueOf() < 0) {
+        Moment anchor2 = a.clone().add(wholeMonthDiff - 1, "months");
+        double denom = static_cast<double>(anchor.valueOf() - anchor2.valueOf());
+        adjust = (denom != 0.0) ? static_cast<double>(b.valueOf() - anchor.valueOf()) / denom : 0.0;
+    } else {
+        Moment anchor2 = a.clone().add(wholeMonthDiff + 1, "months");
+        double denom = static_cast<double>(anchor2.valueOf() - anchor.valueOf());
+        adjust = (denom != 0.0) ? static_cast<double>(b.valueOf() - anchor.valueOf()) / denom : 0.0;
+    }
+
+    double result = -(wholeMonthDiff + adjust);
+    return (result == 0.0) ? 0.0 : result; // avoid negative zero
+}
+
+} // namespace detail
+
+inline double Moment::diff(const Moment& other, const std::string& unit, bool precise) const {
+    if (!isValid() || !other.isValid()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    Unit u = normalizeUnit(unit);
+    double output;
+
+    // Zone delta for day/week calculations (negate DST effects)
+    int64_t zoneDelta = static_cast<int64_t>(other.utcOffset() - utcOffset()) * 60000LL;
+
+    switch (u) {
+        case Unit::Year:
+            output = detail::monthDiff(*this, other) / 12.0;
+            break;
+        case Unit::Month:
+            output = detail::monthDiff(*this, other);
+            break;
+        case Unit::Quarter:
+            output = detail::monthDiff(*this, other) / 3.0;
+            break;
+        case Unit::Second:
+            output = static_cast<double>(timestamp_ms_ - other.timestamp_ms_) / 1000.0;
+            break;
+        case Unit::Minute:
+            output = static_cast<double>(timestamp_ms_ - other.timestamp_ms_) / 60000.0;
+            break;
+        case Unit::Hour:
+            output = static_cast<double>(timestamp_ms_ - other.timestamp_ms_) / 3600000.0;
+            break;
+        case Unit::Day:
+        case Unit::Date:
+            output = static_cast<double>(timestamp_ms_ - other.timestamp_ms_ - zoneDelta) / 86400000.0;
+            break;
+        case Unit::Week:
+        case Unit::IsoWeek:
+            output = static_cast<double>(timestamp_ms_ - other.timestamp_ms_ - zoneDelta) / 604800000.0;
+            break;
+        default:
+            // Millisecond and anything else
+            output = static_cast<double>(timestamp_ms_ - other.timestamp_ms_);
+            break;
+    }
+
+    if (!precise) {
+        // Truncate toward zero (not floor)
+        output = (output >= 0) ? std::floor(output) : std::ceil(output);
+    }
+
+    return output;
+}
+
+// ── Display: relative time helpers ───────────────────────────────────
+
+namespace detail {
+
+/// @brief Replace the first occurrence of a substring in a string.
+inline std::string replaceFirst(const std::string& str, const std::string& from, const std::string& to) {
+    std::string result = str;
+    size_t pos = result.find(from);
+    if (pos != std::string::npos) {
+        result.replace(pos, from.size(), to);
+    }
+    return result;
+}
+
+/// @brief Get a relative time string from a RelativeTimeValue for the given parameters.
+inline std::string resolveRelativeTime(const RelativeTimeValue& val, int number,
+                                        bool withoutSuffix, const std::string& key,
+                                        bool isFuture) {
+    if (std::holds_alternative<std::string>(val)) {
+        std::string tmpl = std::get<std::string>(val);
+        return replaceFirst(tmpl, "%d", std::to_string(number));
+    } else {
+        return std::get<RelativeTimeFn>(val)(number, withoutSuffix, key, isFuture);
+    }
+}
+
+/// @brief Lookup a RelativeTimeValue by key from RelativeTimeFormats.
+inline const RelativeTimeValue& lookupRelativeTimeKey(const RelativeTimeFormats& rt, const std::string& key) {
+    if (key == "s")  return rt.s;
+    if (key == "ss") return rt.ss;
+    if (key == "m")  return rt.m;
+    if (key == "mm") return rt.mm;
+    if (key == "h")  return rt.h;
+    if (key == "hh") return rt.hh;
+    if (key == "d")  return rt.d;
+    if (key == "dd") return rt.dd;
+    if (key == "w")  return rt.w;
+    if (key == "ww") return rt.ww;
+    if (key == "M")  return rt.M;
+    if (key == "MM") return rt.MM;
+    if (key == "y")  return rt.y;
+    if (key == "yy") return rt.yy;
+    // Fallback
+    return rt.s;
+}
+
+/// @brief Compute relative time string from a millisecond duration.
+/// @param ms_duration Positive or negative duration in milliseconds.
+/// @param withoutSuffix If true, omit future/past wrapper.
+/// @param locale_key Locale to use for formatting.
+/// @return The formatted relative time string.
+inline std::string computeRelativeTime(int64_t ms_duration, bool withoutSuffix,
+                                        const std::string& locale_key) {
+    const auto& loc = localeData(locale_key);
+    const auto& rt = loc.relativeTime;
+
+    bool isFuture = ms_duration > 0;
+    int64_t abs_ms = std::abs(ms_duration);
+
+    // Compute rounded values in each unit
+    int seconds = static_cast<int>(std::round(static_cast<double>(abs_ms) / 1000.0));
+    int minutes = static_cast<int>(std::round(static_cast<double>(abs_ms) / 60000.0));
+    int hours   = static_cast<int>(std::round(static_cast<double>(abs_ms) / 3600000.0));
+    int days    = static_cast<int>(std::round(static_cast<double>(abs_ms) / 86400000.0));
+    int months  = static_cast<int>(std::round(static_cast<double>(days) / 30.4375));
+    int years   = static_cast<int>(std::round(static_cast<double>(months) / 12.0));
+
+    // Look up thresholds
+    double th_ss = relativeTimeThreshold("ss");
+    double th_s  = relativeTimeThreshold("s");
+    double th_m  = relativeTimeThreshold("m");
+    double th_h  = relativeTimeThreshold("h");
+    double th_d  = relativeTimeThreshold("d");
+    double th_M  = relativeTimeThreshold("M");
+
+    std::string key;
+    int value = 0;
+
+    if (seconds <= static_cast<int>(th_ss)) {
+        key = "s"; value = seconds;
+    } else if (seconds < static_cast<int>(th_s)) {
+        key = "ss"; value = seconds;
+    } else if (minutes <= 1) {
+        key = "m"; value = 1;
+    } else if (minutes < static_cast<int>(th_m)) {
+        key = "mm"; value = minutes;
+    } else if (hours <= 1) {
+        key = "h"; value = 1;
+    } else if (hours < static_cast<int>(th_h)) {
+        key = "hh"; value = hours;
+    } else if (days <= 1) {
+        key = "d"; value = 1;
+    } else if (days < static_cast<int>(th_d)) {
+        key = "dd"; value = days;
+    } else if (months <= 1) {
+        key = "M"; value = 1;
+    } else if (months < static_cast<int>(th_M)) {
+        key = "MM"; value = months;
+    } else if (years <= 1) {
+        key = "y"; value = 1;
+    } else {
+        key = "yy"; value = years;
+    }
+
+    const auto& rtv = lookupRelativeTimeKey(rt, key);
+    std::string output = resolveRelativeTime(rtv, value, withoutSuffix, key, isFuture);
+
+    if (!withoutSuffix) {
+        // Wrap with future/past
+        if (isFuture) {
+            output = replaceFirst(rt.future, "%s", output);
+        } else {
+            output = replaceFirst(rt.past, "%s", output);
+        }
+    }
+
+    return output;
+}
+
+} // namespace detail
+
+// ── Display: from / fromNow / to / toNow ────────────────────────────
+
+inline std::string Moment::from(const Moment& other, bool withoutSuffix) const {
+    if (!isValid() || !other.isValid()) {
+        return localeData(locale_key_).invalidDate;
+    }
+    // ms_duration: positive if this is in the future relative to other
+    int64_t ms_duration = timestamp_ms_ - other.timestamp_ms_;
+    return detail::computeRelativeTime(ms_duration, withoutSuffix, locale_key_);
+}
+
+inline std::string Moment::fromNow(bool withoutSuffix) const {
+    return from(Moment(), withoutSuffix);
+}
+
+inline std::string Moment::to(const Moment& other, bool withoutSuffix) const {
+    if (!isValid() || !other.isValid()) {
+        return localeData(locale_key_).invalidDate;
+    }
+    // Reversed direction from "from"
+    int64_t ms_duration = other.timestamp_ms_ - timestamp_ms_;
+    return detail::computeRelativeTime(ms_duration, withoutSuffix, locale_key_);
+}
+
+inline std::string Moment::toNow(bool withoutSuffix) const {
+    return to(Moment(), withoutSuffix);
+}
+
+// ── Display: calendar ────────────────────────────────────────────────
+
+inline std::string Moment::calendar() const {
+    return calendar(Moment());
+}
+
+inline std::string Moment::calendar(const Moment& reference) const {
+    if (!isValid()) {
+        return localeData(locale_key_).invalidDate;
+    }
+
+    // Compute diff in days from start-of-day of reference
+    Moment sod = reference.clone();
+    // Clone to local/utc matching this moment's mode for consistent comparison
+    if (is_utc_) {
+        sod.utc();
+    }
+    sod.startOf("day");
+    double dayDiff = diff(sod, "day", true);
+
+    std::string calKey;
+    if (dayDiff < -6) {
+        calKey = "sameElse";
+    } else if (dayDiff < -1) {
+        calKey = "lastWeek";
+    } else if (dayDiff < 0) {
+        calKey = "lastDay";
+    } else if (dayDiff < 1) {
+        calKey = "sameDay";
+    } else if (dayDiff < 2) {
+        calKey = "nextDay";
+    } else if (dayDiff < 7) {
+        calKey = "nextWeek";
+    } else {
+        calKey = "sameElse";
+    }
+
+    const auto& loc = localeData(locale_key_);
+    const auto& cal = loc.calendar;
+
+    // Get the CalendarValue for this key
+    const CalendarValue* cv = nullptr;
+    if (calKey == "sameDay")  cv = &cal.sameDay;
+    else if (calKey == "nextDay")  cv = &cal.nextDay;
+    else if (calKey == "nextWeek") cv = &cal.nextWeek;
+    else if (calKey == "lastDay")  cv = &cal.lastDay;
+    else if (calKey == "lastWeek") cv = &cal.lastWeek;
+    else                           cv = &cal.sameElse;
+
+    std::string fmtStr;
+    if (std::holds_alternative<std::string>(*cv)) {
+        fmtStr = std::get<std::string>(*cv);
+    } else {
+        fmtStr = std::get<CalendarFn>(*cv)();
+    }
+
+    return format(fmtStr);
+}
+
+// ── Display: toJSON, toString, toArray ───────────────────────────────
+
+inline std::string Moment::toJSON() const {
+    return toISOString();
+}
+
+inline std::string Moment::toString() const {
+    if (!isValid()) {
+        return "Invalid date";
+    }
+
+    // Fixed English names for toString (not locale-dependent)
+    static const char* dayNames[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+    static const char* monthNames[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+    auto c = toComponents();
+    int dow = detail::dayOfWeekFromDate(c.year, c.month, c.day);
+
+    // Format UTC offset as +HHMM or -HHMM
+    int off = utcOffset();
+    char signChar = off >= 0 ? '+' : '-';
+    int absOff = std::abs(off);
+    int offHours = absOff / 60;
+    int offMins = absOff % 60;
+
+    // "Fri Mar 15 2024 14:30:45 GMT+0000"
+    char buf[128];
+    std::snprintf(buf, sizeof(buf), "%s %s %02d %04d %02d:%02d:%02d GMT%c%02d%02d",
+                  dayNames[dow], monthNames[c.month],
+                  c.day, c.year,
+                  c.hour, c.minute, c.second,
+                  signChar, offHours, offMins);
+    return std::string(buf);
+}
+
+inline std::array<int, 7> Moment::toArray() const {
+    auto c = toComponents();
+    return {{c.year, c.month, c.day, c.hour, c.minute, c.second, c.ms}};
+}
+
+// ── Query: isBefore / isAfter / isSame / isBetween ──────────────────
+
+inline bool Moment::isBefore(const Moment& other) const {
+    if (!isValid() || !other.isValid()) return false;
+    return timestamp_ms_ < other.timestamp_ms_;
+}
+
+inline bool Moment::isBefore(const Moment& other, const std::string& unit) const {
+    if (!isValid() || !other.isValid()) return false;
+    Unit u = normalizeUnit(unit);
+    if (u == Unit::Millisecond || u == Unit::Invalid) {
+        return timestamp_ms_ < other.timestamp_ms_;
+    }
+    // this.endOf(unit) < other
+    return clone().endOf(unit).valueOf() < other.valueOf();
+}
+
+inline bool Moment::isAfter(const Moment& other) const {
+    if (!isValid() || !other.isValid()) return false;
+    return timestamp_ms_ > other.timestamp_ms_;
+}
+
+inline bool Moment::isAfter(const Moment& other, const std::string& unit) const {
+    if (!isValid() || !other.isValid()) return false;
+    Unit u = normalizeUnit(unit);
+    if (u == Unit::Millisecond || u == Unit::Invalid) {
+        return timestamp_ms_ > other.timestamp_ms_;
+    }
+    // other < this.startOf(unit)
+    return other.valueOf() < clone().startOf(unit).valueOf();
+}
+
+inline bool Moment::isSame(const Moment& other) const {
+    if (!isValid() || !other.isValid()) return false;
+    return timestamp_ms_ == other.timestamp_ms_;
+}
+
+inline bool Moment::isSame(const Moment& other, const std::string& unit) const {
+    if (!isValid() || !other.isValid()) return false;
+    Unit u = normalizeUnit(unit);
+    if (u == Unit::Millisecond || u == Unit::Invalid) {
+        return timestamp_ms_ == other.timestamp_ms_;
+    }
+    int64_t inputMs = other.valueOf();
+    return clone().startOf(unit).valueOf() <= inputMs &&
+           inputMs <= clone().endOf(unit).valueOf();
+}
+
+inline bool Moment::isSameOrBefore(const Moment& other) const {
+    return isSame(other) || isBefore(other);
+}
+
+inline bool Moment::isSameOrBefore(const Moment& other, const std::string& unit) const {
+    return isSame(other, unit) || isBefore(other, unit);
+}
+
+inline bool Moment::isSameOrAfter(const Moment& other) const {
+    return isSame(other) || isAfter(other);
+}
+
+inline bool Moment::isSameOrAfter(const Moment& other, const std::string& unit) const {
+    return isSame(other, unit) || isAfter(other, unit);
+}
+
+inline bool Moment::isBetween(const Moment& from, const Moment& to) const {
+    return isBetween(from, to, "", "()");
+}
+
+inline bool Moment::isBetween(const Moment& from, const Moment& to, const std::string& unit) const {
+    return isBetween(from, to, unit, "()");
+}
+
+inline bool Moment::isBetween(const Moment& from, const Moment& to,
+                                const std::string& unit, const std::string& inclusivity) const {
+    if (!isValid() || !from.isValid() || !to.isValid()) return false;
+
+    std::string incl = inclusivity.empty() ? "()" : inclusivity;
+
+    bool startOk, endOk;
+    if (incl[0] == '(') {
+        startOk = unit.empty() ? isAfter(from) : isAfter(from, unit);
+    } else {
+        // '['
+        startOk = unit.empty() ? !isBefore(from) : !isBefore(from, unit);
+    }
+    if (incl.size() > 1 && incl[1] == ')') {
+        endOk = unit.empty() ? isBefore(to) : isBefore(to, unit);
+    } else {
+        // ']'
+        endOk = unit.empty() ? !isAfter(to) : !isAfter(to, unit);
+    }
+
+    return startOk && endOk;
+}
+
+// ── Query: isDST ─────────────────────────────────────────────────────
+
+inline bool Moment::isDST() const {
+    // Compare UTC offset now vs January 1 of the same year
+    // If the current offset is greater than Jan 1 offset, DST is active
+    Moment jan1 = clone();
+    jan1.month(0).date(1).startOf("day");
+    return utcOffset() > jan1.utcOffset();
+}
 
 // ── Operators ────────────────────────────────────────────────────────
 

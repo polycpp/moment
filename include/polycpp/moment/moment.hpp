@@ -185,7 +185,94 @@ public:
      */
     int64_t unix() const;
 
-    // ── Display / Query ──────────────────────────────────────────────
+    /**
+     * @brief Human-readable relative time from now ("3 hours ago").
+     * @param withoutSuffix If true, omit the "ago"/"in" wrapper.
+     * @return Relative time string.
+     * @since 0.3.0
+     */
+    std::string fromNow(bool withoutSuffix = false) const;
+
+    /**
+     * @brief Human-readable relative time from another moment.
+     * @param other The reference moment.
+     * @param withoutSuffix If true, omit the "ago"/"in" wrapper.
+     * @return Relative time string.
+     * @since 0.3.0
+     */
+    std::string from(const Moment& other, bool withoutSuffix = false) const;
+
+    /**
+     * @brief Human-readable relative time to now.
+     * @param withoutSuffix If true, omit the "ago"/"in" wrapper.
+     * @return Relative time string.
+     * @since 0.3.0
+     */
+    std::string toNow(bool withoutSuffix = false) const;
+
+    /**
+     * @brief Human-readable relative time to another moment.
+     * @param other The reference moment.
+     * @param withoutSuffix If true, omit the "ago"/"in" wrapper.
+     * @return Relative time string.
+     * @since 0.3.0
+     */
+    std::string to(const Moment& other, bool withoutSuffix = false) const;
+
+    /**
+     * @brief Calendar time relative to now ("Today at 2:30 PM").
+     * @return Calendar-formatted string.
+     * @since 0.3.0
+     */
+    std::string calendar() const;
+
+    /**
+     * @brief Calendar time relative to a reference moment.
+     * @param reference The reference moment.
+     * @return Calendar-formatted string.
+     * @since 0.3.0
+     */
+    std::string calendar(const Moment& reference) const;
+
+    /**
+     * @brief Compute the difference between this moment and another.
+     *
+     * Returns `this - other` in the specified unit. If precise is false,
+     * the result is truncated toward zero (not floored).
+     *
+     * @param other The moment to compare against.
+     * @param unit The unit of measurement (default: "ms").
+     * @param precise If true, return fractional result; otherwise truncate.
+     * @return The difference as a double.
+     * @since 0.3.0
+     */
+    double diff(const Moment& other, const std::string& unit = "ms", bool precise = false) const;
+
+    /**
+     * @brief Get the JSON representation (same as toISOString).
+     * @return ISO 8601 formatted string.
+     * @since 0.3.0
+     */
+    std::string toJSON() const;
+
+    /**
+     * @brief Get a string representation like "Fri Mar 15 2024 14:30:45 GMT+0000".
+     *
+     * Always uses English names, independent of locale.
+     *
+     * @return Formatted string.
+     * @since 0.3.0
+     */
+    std::string toString() const;
+
+    /**
+     * @brief Get the date components as an array.
+     * @return Array of {year, month, date, hour, minute, second, millisecond}.
+     * @since 0.3.0
+     */
+    std::array<int, 7> toArray() const;
+
+    // ── Query ────────────────────────────────────────────────────────
 
     /// @brief Get the millisecond timestamp (ms since Unix epoch).
     int64_t valueOf() const;
@@ -204,6 +291,48 @@ public:
 
     /// @brief Check if UTC offset was explicitly set.
     bool isUtcOffset() const;
+
+    /// @brief Check if this moment is before another.
+    bool isBefore(const Moment& other) const;
+    /// @brief Check if this moment is before another at a given unit granularity.
+    bool isBefore(const Moment& other, const std::string& unit) const;
+
+    /// @brief Check if this moment is after another.
+    bool isAfter(const Moment& other) const;
+    /// @brief Check if this moment is after another at a given unit granularity.
+    bool isAfter(const Moment& other, const std::string& unit) const;
+
+    /// @brief Check if this moment is the same as another.
+    bool isSame(const Moment& other) const;
+    /// @brief Check if this moment is the same as another at a given unit granularity.
+    bool isSame(const Moment& other, const std::string& unit) const;
+
+    /// @brief Check if this moment is the same as or before another.
+    bool isSameOrBefore(const Moment& other) const;
+    /// @brief Check if this moment is the same as or before another at a given unit granularity.
+    bool isSameOrBefore(const Moment& other, const std::string& unit) const;
+
+    /// @brief Check if this moment is the same as or after another.
+    bool isSameOrAfter(const Moment& other) const;
+    /// @brief Check if this moment is the same as or after another at a given unit granularity.
+    bool isSameOrAfter(const Moment& other, const std::string& unit) const;
+
+    /// @brief Check if this moment is between two others (exclusive by default).
+    bool isBetween(const Moment& from, const Moment& to) const;
+    /// @brief Check if this moment is between two others at a given unit granularity.
+    bool isBetween(const Moment& from, const Moment& to, const std::string& unit) const;
+    /**
+     * @brief Check if this moment is between two others with inclusivity control.
+     * @param from Start boundary.
+     * @param to End boundary.
+     * @param unit Unit granularity (empty or "millisecond" for raw comparison).
+     * @param inclusivity Two-char string: "()" exclusive, "[]" inclusive, "[)" or "(]" half-open.
+     * @since 0.3.0
+     */
+    bool isBetween(const Moment& from, const Moment& to, const std::string& unit, const std::string& inclusivity) const;
+
+    /// @brief Check if daylight saving time is active.
+    bool isDST() const;
 
     /// @brief Deep copy this Moment.
     Moment clone() const;
