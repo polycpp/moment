@@ -1256,6 +1256,9 @@ inline std::string Moment::calendar(const Moment& reference) const {
 // ── Display: toJSON, toString, toArray ───────────────────────────────
 
 inline std::string Moment::toJSON() const {
+    if (!isValid()) {
+        return "null";
+    }
     return toISOString();
 }
 

@@ -223,6 +223,11 @@ TEST(DisplayTest, ToJSON) {
     EXPECT_EQ(m.toJSON(), m.toISOString());
 }
 
+TEST(DisplayTest, ToJSONInvalidReturnsNull) {
+    auto m = invalid();
+    EXPECT_EQ(m.toJSON(), "null");
+}
+
 TEST(DisplayTest, ToString) {
     auto m = Moment::InternalAccess::fromUtcComponents(2024, 2, 15, 14, 30, 45, 0);
     std::string s = m.toString();

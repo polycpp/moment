@@ -7,6 +7,7 @@
  */
 #include <gtest/gtest.h>
 #include <polycpp/moment/detail/aggregator.hpp>
+#include <polycpp/core/error.hpp>
 
 using namespace polycpp::moment;
 
@@ -380,6 +381,10 @@ TEST(FormatTest, InvalidMomentFormat) {
 TEST(FormatTest, ToISOString) {
     auto m = knownUtc();
     EXPECT_EQ(m.toISOString(), "2024-03-15T14:30:45.123Z");
+}
+
+TEST(FormatTest, ToISOStringThrowsRangeErrorOnInvalid) {
+    EXPECT_THROW(invalid().toISOString(), polycpp::RangeError);
 }
 
 TEST(FormatTest, ToISOStringKeepOffset) {

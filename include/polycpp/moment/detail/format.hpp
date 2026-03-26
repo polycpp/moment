@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <polycpp/core/error.hpp>
 
 namespace polycpp {
 namespace moment {
@@ -591,7 +592,7 @@ inline std::string Moment::format(const std::string& fmt) const {
 
 inline std::string Moment::toISOString(bool keepOffset) const {
     if (!isValid()) {
-        return "Invalid date";
+        throw polycpp::RangeError("Invalid time value");
     }
     if (keepOffset) {
         return format("YYYY-MM-DD[T]HH:mm:ss.SSSZ");
