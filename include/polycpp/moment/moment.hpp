@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <vector>
 #include <chrono>
 
 namespace polycpp {
@@ -152,6 +153,38 @@ public:
     /// @brief Switch to local mode. Mutates in-place.
     Moment& local(bool keepLocalTime = false);
 
+    // ── Display ───────────────────────────────────────────────────────
+
+    /**
+     * @brief Format this Moment as a string using format tokens.
+     *
+     * Supports all standard Moment.js format tokens (YYYY, MM, DD, HH, mm, ss,
+     * SSS, etc.) plus macro tokens (LT, L, LL, LLL, LLLL) and escaped text
+     * in `[brackets]`.
+     *
+     * If @p fmt is empty, the default ISO 8601 format with offset is used.
+     *
+     * @param fmt The format string (default: "").
+     * @return The formatted date/time string.
+     * @since 0.2.0
+     */
+    std::string format(const std::string& fmt = "") const;
+
+    /**
+     * @brief Get the ISO 8601 string representation.
+     * @param keepOffset If true, use the moment's UTC offset instead of Z.
+     * @return ISO 8601 formatted string.
+     * @since 0.2.0
+     */
+    std::string toISOString(bool keepOffset = false) const;
+
+    /**
+     * @brief Get the Unix timestamp in seconds.
+     * @return Seconds since Unix epoch.
+     * @since 0.2.0
+     */
+    int64_t unix() const;
+
     // ── Display / Query ──────────────────────────────────────────────
 
     /// @brief Get the millisecond timestamp (ms since Unix epoch).
@@ -184,6 +217,12 @@ public:
     bool operator>(const Moment& other) const;
     bool operator>=(const Moment& other) const;
 
+    // ── Friends — parse functions need access to internal state ────────
+
+    /// @brief Access helper for parse/format implementation details.
+    struct InternalAccess;
+    friend struct InternalAccess;
+
 private:
     // ── Internal helpers ─────────────────────────────────────────────
 
@@ -214,6 +253,56 @@ private:
     std::string locale_key_ = "en";
 };
 
+/**
+ * @brief Provides controlled access to Moment's private members for
+ *        factory functions and formatting internals.
+ *
+ * This avoids the need for many individual friend declarations.
+ * @since 0.2.0
+ */
+struct Moment::InternalAccess {
+    static void setTimestamp(Moment& m, int64_t ts) { m.timestamp_ms_ = ts; }
+    static void setValid(Moment& m, bool v) { m.is_valid_ = v; }
+    static void setUtc(Moment& m, bool v) { m.is_utc_ = v; }
+    static void setOffset(Moment& m, int minutes) {
+        m.utc_offset_minutes_ = minutes;
+        m.has_fixed_offset_ = true;
+    }
+    static void setLocale(Moment& m, const std::string& loc) { m.locale_key_ = loc; }
+    static int64_t getTimestamp(const Moment& m) { return m.timestamp_ms_; }
+    static bool getIsUtc(const Moment& m) { return m.is_utc_; }
+    static bool getHasFixedOffset(const Moment& m) { return m.has_fixed_offset_; }
+    static int getOffsetMinutes(const Moment& m) { return m.utc_offset_minutes_; }
+    static std::string getLocaleKey(const Moment& m) { return m.locale_key_; }
+
+    /// @brief Create an invalid Moment.
+    static Moment makeInvalid() {
+        Moment m(0);
+        m.is_valid_ = false;
+        return m;
+    }
+
+    /// @brief Create a Moment from components in UTC.
+    static Moment fromUtcComponents(int year, int month, int day,
+                                     int hour, int minute, int second, int ms) {
+        Moment m(0);
+        m.is_utc_ = true;
+        Moment::DateComponents c{year, month, day, hour, minute, second, ms};
+        m.fromComponents(c);
+        return m;
+    }
+
+    /// @brief Create a Moment from components in local time.
+    static Moment fromLocalComponents(int year, int month, int day,
+                                       int hour, int minute, int second, int ms) {
+        Moment m(0);
+        m.is_utc_ = false;
+        Moment::DateComponents c{year, month, day, hour, minute, second, ms};
+        m.fromComponents(c);
+        return m;
+    }
+};
+
 // ── Factory functions ────────────────────────────────────────────────
 
 /**
@@ -229,6 +318,202 @@ Moment now();
  * @since 0.1.0
  */
 int64_t nowMs();
+
+/**
+ * @brief Parse a date/time string, auto-detecting the format.
+ *
+ * Attempts ISO 8601 first, then RFC 2822. Returns an invalid Moment
+ * if neither format matches.
+ *
+ * @param input The date/time string to parse.
+ * @return A Moment representing the parsed date/time, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment parse(const std::string& input);
+
+/**
+ * @brief Parse a date/time string using a specific format string.
+ *
+ * The format string uses Moment.js-compatible tokens (YYYY, MM, DD, etc.).
+ *
+ * @param input  The date/time string to parse.
+ * @param format The format string specifying the expected token layout.
+ * @return A Moment representing the parsed date/time, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment parse(const std::string& input, const std::string& format);
+
+/**
+ * @brief Parse a date/time string using a format string with optional strict mode.
+ *
+ * In strict mode, the input must match the format exactly with no extra characters.
+ *
+ * @param input  The date/time string to parse.
+ * @param format The format string specifying the expected token layout.
+ * @param strict If true, enforce strict matching.
+ * @return A Moment representing the parsed date/time, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment parse(const std::string& input, const std::string& format, bool strict);
+
+/**
+ * @brief Parse a date/time string trying multiple format strings.
+ *
+ * Each format is tried in order; the first successful parse is returned.
+ *
+ * @param input   The date/time string to parse.
+ * @param formats A vector of format strings to try.
+ * @return A Moment from the first matching format, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment parse(const std::string& input, const std::vector<std::string>& formats);
+
+/**
+ * @brief Create a Moment from a Unix timestamp in seconds.
+ * @param seconds Seconds since Unix epoch.
+ * @return A Moment representing the specified time.
+ * @since 0.2.0
+ */
+Moment fromUnixTimestamp(int64_t seconds);
+
+/**
+ * @brief Create a Moment from a millisecond timestamp.
+ * @param ms Milliseconds since Unix epoch.
+ * @return A Moment representing the specified time.
+ * @since 0.2.0
+ */
+Moment fromMilliseconds(int64_t ms);
+
+/**
+ * @brief Create a Moment from date/time components in local time.
+ *
+ * Month is 0-based (0=January, 11=December), matching Moment.js convention.
+ *
+ * @param year   The year.
+ * @param month  The month (0-11).
+ * @param day    The day of month (default: 1).
+ * @param hour   The hour (default: 0).
+ * @param minute The minute (default: 0).
+ * @param second The second (default: 0).
+ * @param ms     The millisecond (default: 0).
+ * @return A Moment representing the specified date/time in local time.
+ * @since 0.2.0
+ */
+Moment fromDate(int year, int month, int day = 1, int hour = 0,
+                int minute = 0, int second = 0, int ms = 0);
+
+/**
+ * @brief Create a Moment representing the current time in UTC mode.
+ * @return A valid UTC Moment set to now.
+ * @since 0.2.0
+ */
+Moment utcNow();
+
+/**
+ * @brief Parse a date/time string in UTC mode.
+ * @param input The date/time string to parse.
+ * @return A UTC Moment from the parsed date/time, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment utcFromString(const std::string& input);
+
+/**
+ * @brief Parse a date/time string using a format string in UTC mode.
+ * @param input  The date/time string.
+ * @param format The format string.
+ * @return A UTC Moment from the parsed date/time, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment utcFromFormat(const std::string& input, const std::string& format);
+
+/**
+ * @brief Create a UTC Moment from a millisecond timestamp.
+ * @param ms Milliseconds since Unix epoch.
+ * @return A UTC Moment.
+ * @since 0.2.0
+ */
+Moment utcFromMs(int64_t ms);
+
+/**
+ * @brief Create a Moment from date/time components in UTC.
+ *
+ * Month is 0-based (0=January, 11=December).
+ *
+ * @param year   The year.
+ * @param month  The month (0-11).
+ * @param day    The day of month (default: 1).
+ * @param hour   The hour (default: 0).
+ * @param minute The minute (default: 0).
+ * @param second The second (default: 0).
+ * @param ms     The millisecond (default: 0).
+ * @return A UTC Moment.
+ * @since 0.2.0
+ */
+Moment utcFromDate(int year, int month, int day = 1, int hour = 0,
+                   int minute = 0, int second = 0, int ms = 0);
+
+/**
+ * @brief Parse a date/time string preserving the parsed timezone offset.
+ *
+ * The resulting Moment will have a fixed UTC offset matching the one
+ * found in the input string. If no offset is present, UTC is assumed.
+ *
+ * @param input The date/time string (should include timezone offset).
+ * @return A Moment with a fixed offset, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment parseZone(const std::string& input);
+
+/**
+ * @brief Parse a date/time string with a format, preserving the timezone offset.
+ * @param input  The date/time string.
+ * @param format The format string.
+ * @return A Moment with a fixed offset, or an invalid Moment.
+ * @since 0.2.0
+ */
+Moment parseZone(const std::string& input, const std::string& format);
+
+/**
+ * @brief Create an invalid Moment.
+ *
+ * The returned Moment has isValid() == false and will format as "Invalid date".
+ *
+ * @return An invalid Moment.
+ * @since 0.2.0
+ */
+Moment invalid();
+
+/**
+ * @brief Return the earliest (minimum) of the given moments.
+ * @param moments An initializer list of Moment objects.
+ * @return The Moment with the smallest timestamp.
+ * @since 0.2.0
+ */
+Moment min(std::initializer_list<Moment> moments);
+
+/**
+ * @brief Return the latest (maximum) of the given moments.
+ * @param moments An initializer list of Moment objects.
+ * @return The Moment with the largest timestamp.
+ * @since 0.2.0
+ */
+Moment max(std::initializer_list<Moment> moments);
+
+/**
+ * @brief Return the earliest (minimum) of the given moments.
+ * @param moments A vector of Moment objects.
+ * @return The Moment with the smallest timestamp.
+ * @since 0.2.0
+ */
+Moment min(const std::vector<Moment>& moments);
+
+/**
+ * @brief Return the latest (maximum) of the given moments.
+ * @param moments A vector of Moment objects.
+ * @return The Moment with the largest timestamp.
+ * @since 0.2.0
+ */
+Moment max(const std::vector<Moment>& moments);
 
 } // namespace moment
 } // namespace polycpp

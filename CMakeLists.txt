@@ -62,4 +62,12 @@ if(POLYCPP_MOMENT_BUILD_TESTS)
     add_executable(test_duration tests/test_duration.cpp)
     target_link_libraries(test_duration PRIVATE polycpp_moment GTest::gtest_main)
     gtest_discover_tests(test_duration)
+
+    add_executable(test_format tests/test_format.cpp)
+    target_link_libraries(test_format PRIVATE polycpp_moment GTest::gtest_main)
+    gtest_discover_tests(test_format)
+
+    add_executable(test_parse tests/test_parse.cpp)
+    target_link_libraries(test_parse PRIVATE polycpp_moment GTest::gtest_main)
+    gtest_discover_tests(test_parse)
 endif()
