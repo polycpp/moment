@@ -528,10 +528,11 @@ inline std::string formatToken(const std::string& token, const Moment& m,
 /**
  * @brief Default format string for ISO 8601 output with timezone offset.
  *
- * Produces: YYYY-MM-DDTHH:mm:ss.SSSZ (e.g. "2024-03-15T14:30:45.123+00:00")
+ * UTC moments produce: YYYY-MM-DDTHH:mm:ssZ (e.g. "2024-03-15T14:30:45Z")
+ * Local moments produce: YYYY-MM-DDTHH:mm:ss.SSSZ (e.g. "2024-03-15T14:30:45.123+00:00")
  */
 inline std::string defaultFormat(const Moment& m) {
-    return formatMoment(m, "YYYY-MM-DD[T]HH:mm:ss.SSSZ");
+    return formatMoment(m, "");
 }
 
 /**
@@ -551,10 +552,17 @@ inline std::string formatMoment(const Moment& m, const std::string& format_str) 
         return loc.invalidDate;
     }
 
-    // Use default format if empty
-    std::string fmt = format_str.empty()
-        ? "YYYY-MM-DD[T]HH:mm:ss.SSSZ"
-        : format_str;
+    // Use default format if empty.
+    // UTC moments use "YYYY-MM-DDTHH:mm:ss[Z]" (literal Z, no ms),
+    // local moments use "YYYY-MM-DDTHH:mm:ss.SSSZ" (Z token = offset).
+    std::string fmt;
+    if (format_str.empty()) {
+        fmt = m.isUtc()
+            ? "YYYY-MM-DD[T]HH:mm:ss[Z]"
+            : "YYYY-MM-DD[T]HH:mm:ss.SSSZ";
+    } else {
+        fmt = format_str;
+    }
 
     // Step 1: Expand macro tokens using locale's longDateFormat
     const auto& loc = localeData(Moment::InternalAccess::getLocaleKey(m));

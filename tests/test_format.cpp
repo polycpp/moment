@@ -324,8 +324,8 @@ TEST(FormatTest, FullISOLikeFormat) {
 TEST(FormatTest, EmptyFormatUsesDefault) {
     auto m = knownUtc();
     std::string result = m.format();
-    // Default format: YYYY-MM-DDTHH:mm:ss.SSSZ
-    EXPECT_EQ(result, "2024-03-15T14:30:45.123+00:00");
+    // UTC moments use default format: YYYY-MM-DDTHH:mm:ss[Z] (no ms, literal Z)
+    EXPECT_EQ(result, "2024-03-15T14:30:45Z");
 }
 
 // ═════════════════════════════════════════════════════════════════════
