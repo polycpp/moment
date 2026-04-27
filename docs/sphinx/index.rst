@@ -8,6 +8,10 @@ strings, components, or timestamps; manipulate years, months, days, or
 durations; format with Moment tokens or locale macros; humanize relative
 time; and round-trip through JSON.
 
+Upstream Moment.js source is maintained at
+`moment/moment <https://github.com/moment/moment>`_; the npm package
+name is ``moment``.
+
 .. code-block:: cpp
 
    #include <iostream>

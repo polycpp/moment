@@ -8,6 +8,10 @@ C++20 companion port of [Moment.js](https://www.npmjs.com/package/moment) for th
 
 Port version: `1.0.0`
 
+Upstream repository: [moment/moment](https://github.com/moment/moment)
+
+Upstream package: [moment](https://www.npmjs.com/package/moment)
+
 Initial port based on upstream version: `2.30.1`
 
 Compatibility note:
