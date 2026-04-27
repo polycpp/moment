@@ -35,10 +35,13 @@ your source data instead of relying on a single overloaded constructor.
    * - Year/month/day components
      - :cpp:func:`fromDate <polycpp::moment::fromDate>` or :cpp:func:`utcFromDate <polycpp::moment::utcFromDate>`
      - Avoids string parsing when components are already structured.
+   * - Existing ``polycpp::Date``
+     - :cpp:func:`fromDate <polycpp::moment::fromDate>` or :cpp:func:`utcFromDate <polycpp::moment::utcFromDate>`
+     - Copies the timestamp from another polycpp JavaScript-style date object.
    * - Epoch seconds or milliseconds
      - :cpp:func:`fromUnixTimestamp <polycpp::moment::fromUnixTimestamp>`, :cpp:func:`fromMilliseconds <polycpp::moment::fromMilliseconds>`, or :cpp:func:`utcFromMs <polycpp::moment::utcFromMs>`
      - Makes the timestamp unit explicit at the call site.
-   * - JSON-style object
+   * - JSON-style object or ``JsonValue`` object
      - :cpp:func:`fromObject <polycpp::moment::fromObject>` or :cpp:func:`utcFromObject <polycpp::moment::utcFromObject>`
      - Maps object keys such as ``year``, ``month``, ``date``, ``hour``, and ``minute`` to typed construction.
 
@@ -77,6 +80,18 @@ Build from components when you already have structured data:
    auto local = m::fromDate(2026, 3, 27, 9, 30);      // Apr 27, local mode
    auto utc   = m::utcFromDate(2026, 3, 27, 9, 30);   // Apr 27, UTC mode
 
+Bridge from other polycpp date/JSON APIs without parsing strings:
+
+.. code-block:: cpp
+
+   polycpp::Date date(1777282200000.0);
+   auto fromDate = m::utcFromDate(date);
+
+   polycpp::JsonValue value(polycpp::JsonObject{
+       {"year", 2026}, {"month", 3}, {"date", 27}, {"hour", 9}
+   });
+   auto fromJson = m::fromObject(value);
+
 Month numbers follow Moment.js and JavaScript ``Date``: January is
 ``0`` and December is ``11``. Format tokens such as ``MM`` remain
 human-facing and print months as ``01`` through ``12``.
@@ -90,4 +105,6 @@ Rules of thumb
 - Use ``parseZone`` when the source offset is meaningful to the user.
 - Use component or object factories when your data is already
   structured; they make month indexing and missing defaults explicit.
+- Use ``JsonValue`` overloads when input is already in polycpp's
+  dynamic JSON representation.
 - Always check ``isValid`` on untrusted input.

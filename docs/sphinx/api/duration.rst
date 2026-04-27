@@ -25,3 +25,4 @@ Factory functions
 .. doxygenfunction:: polycpp::moment::duration(const std::string&)
 .. doxygenfunction:: polycpp::moment::duration(const DurationInput&)
 .. doxygenfunction:: polycpp::moment::duration(const polycpp::JsonObject&)
+.. doxygenfunction:: polycpp::moment::duration(const polycpp::JsonValue&)

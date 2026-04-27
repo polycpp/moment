@@ -47,6 +47,23 @@ struct MomentParsingFlags {
     std::string meridiem;
     bool weekdayMismatch = false;
     bool bigHour = false;
+
+    /**
+     * @brief Convert parsing diagnostics to a JsonObject.
+     *
+     * Optional string diagnostics are encoded as JSON null when absent.
+     *
+     * @return JsonObject with Moment.js parsing flag keys.
+     * @since 1.0.0
+     */
+    polycpp::JsonObject toObject() const;
+
+    /**
+     * @brief Convert parsing diagnostics for polycpp JSON serialization.
+     * @return JsonValue containing the same object as toObject().
+     * @since 1.0.0
+     */
+    polycpp::JsonValue toJSON() const;
 };
 
 /**
@@ -62,6 +79,20 @@ struct MomentCreationData {
     std::string locale;
     bool isUTC = false;
     bool strict = false;
+
+    /**
+     * @brief Convert creation metadata to a JsonObject.
+     * @return JsonObject with input, format, locale, isUTC, and strict.
+     * @since 1.0.0
+     */
+    polycpp::JsonObject toObject() const;
+
+    /**
+     * @brief Convert creation metadata for polycpp JSON serialization.
+     * @return JsonValue containing the same object as toObject().
+     * @since 1.0.0
+     */
+    polycpp::JsonValue toJSON() const;
 };
 
 /**
@@ -687,6 +718,18 @@ Moment fromUnixTimestamp(int64_t seconds);
 Moment fromMilliseconds(int64_t ms);
 
 /**
+ * @brief Create a local Moment from a polycpp::Date.
+ *
+ * The timestamp is copied from the Date. Invalid Date values produce an
+ * invalid Moment.
+ *
+ * @param date The polycpp::Date to copy.
+ * @return A local Moment with the same millisecond timestamp.
+ * @since 1.0.0
+ */
+Moment fromDate(const polycpp::Date& date);
+
+/**
  * @brief Create a Moment from date/time components in local time.
  *
  * Month is 0-based (0=January, 11=December), matching Moment.js convention.
@@ -735,6 +778,18 @@ Moment utcFromFormat(const std::string& input, const std::string& format);
  * @since 1.0.0
  */
 Moment utcFromMs(int64_t ms);
+
+/**
+ * @brief Create a UTC Moment from a polycpp::Date.
+ *
+ * The timestamp is copied from the Date. Invalid Date values produce an
+ * invalid Moment.
+ *
+ * @param date The polycpp::Date to copy.
+ * @return A UTC Moment with the same millisecond timestamp.
+ * @since 1.0.0
+ */
+Moment utcFromDate(const polycpp::Date& date);
 
 /**
  * @brief Create a Moment from date/time components in UTC.
@@ -854,6 +909,19 @@ Moment max(const std::vector<Moment>& moments);
 Moment fromObject(const polycpp::JsonObject& obj);
 
 /**
+ * @brief Create a local Moment from a JsonValue containing a JsonObject.
+ *
+ * Accepts the same date component keys as fromObject(const JsonObject&).
+ * Non-object values return an invalid Moment.
+ *
+ * @param value JsonValue containing an object with optional date component keys.
+ * @return Moment constructed from the specified components in local time.
+ * @see https://momentjs.com/docs/#/parsing/object/
+ * @since 1.0.0
+ */
+Moment fromObject(const polycpp::JsonValue& value);
+
+/**
  * @brief Create a UTC Moment from a JsonObject with date component keys.
  *
  * Same key semantics as fromObject(), but the resulting Moment is in UTC mode.
@@ -864,6 +932,19 @@ Moment fromObject(const polycpp::JsonObject& obj);
  * @since 1.0.0
  */
 Moment utcFromObject(const polycpp::JsonObject& obj);
+
+/**
+ * @brief Create a UTC Moment from a JsonValue containing a JsonObject.
+ *
+ * Accepts the same date component keys as utcFromObject(const JsonObject&).
+ * Non-object values return an invalid Moment.
+ *
+ * @param value JsonValue containing an object with optional date component keys.
+ * @return Moment constructed from the specified components in UTC.
+ * @see https://momentjs.com/docs/#/parsing/object/
+ * @since 1.0.0
+ */
+Moment utcFromObject(const polycpp::JsonValue& value);
 
 /**
  * @brief Select a Moment.js calendar key for a moment relative to a reference.

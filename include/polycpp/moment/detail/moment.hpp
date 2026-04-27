@@ -12,6 +12,7 @@
 #include <polycpp/moment/moment.hpp>
 #include <polycpp/moment/units.hpp>
 #include <polycpp/moment/locale.hpp>
+#include <polycpp/moment/detail/json.hpp>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,47 @@
 
 namespace polycpp {
 namespace moment {
+
+inline polycpp::JsonObject MomentParsingFlags::toObject() const {
+    return polycpp::JsonObject{
+        {"empty", empty},
+        {"unusedTokens", detail::jsonArrayFromStrings(unusedTokens)},
+        {"unusedInput", detail::jsonArrayFromStrings(unusedInput)},
+        {"overflow", overflow},
+        {"charsLeftOver", charsLeftOver},
+        {"nullInput", nullInput},
+        {"invalidEra", detail::jsonOptionalString(invalidEra)},
+        {"invalidMonth", detail::jsonOptionalString(invalidMonth)},
+        {"invalidWeekday", detail::jsonOptionalString(invalidWeekday)},
+        {"invalidFormat", invalidFormat},
+        {"userInvalidated", userInvalidated},
+        {"iso", iso},
+        {"rfc2822", rfc2822},
+        {"parsedDateParts", detail::jsonArrayFromInts(parsedDateParts)},
+        {"era", detail::jsonOptionalString(era)},
+        {"meridiem", detail::jsonOptionalString(meridiem)},
+        {"weekdayMismatch", weekdayMismatch},
+        {"bigHour", bigHour}
+    };
+}
+
+inline polycpp::JsonValue MomentParsingFlags::toJSON() const {
+    return polycpp::JsonValue(toObject());
+}
+
+inline polycpp::JsonObject MomentCreationData::toObject() const {
+    return polycpp::JsonObject{
+        {"input", input},
+        {"format", format},
+        {"locale", locale},
+        {"isUTC", isUTC},
+        {"strict", strict}
+    };
+}
+
+inline polycpp::JsonValue MomentCreationData::toJSON() const {
+    return polycpp::JsonValue(toObject());
+}
 
 // ── Helper: days in a given month (0-based month) ─────────────────────
 
@@ -1643,21 +1685,7 @@ inline int64_t nowMs() {
     ).count();
 }
 
-// ── JsonObject construction ─────────────────────────────────────────
-
-namespace detail {
-
-/// @brief Extract an int from a JsonObject, trying two key names with a default.
-inline int jsonGetInt(const polycpp::JsonObject& obj,
-                      const std::string& key1, const std::string& key2, int def) {
-    auto it = obj.find(key1);
-    if (it != obj.end() && it->second.isNumber()) return it->second.asInt();
-    it = obj.find(key2);
-    if (it != obj.end() && it->second.isNumber()) return it->second.asInt();
-    return def;
-}
-
-} // namespace detail
+// ── JsonObject/JsonValue construction ───────────────────────────────
 
 inline Moment fromObject(const polycpp::JsonObject& obj) {
     int year  = detail::jsonGetInt(obj, "year",        "years",        2000);
@@ -1681,6 +1709,28 @@ inline Moment utcFromObject(const polycpp::JsonObject& obj) {
     int ms    = detail::jsonGetInt(obj, "millisecond", "milliseconds", 0);
 
     return utcFromDate(year, month, day, hour, min, sec, ms);
+}
+
+inline Moment fromObject(const polycpp::JsonValue& value) {
+    if (!value.isObject()) {
+        MomentParsingFlags flags;
+        flags.nullInput = value.isNull();
+        flags.invalidFormat = !value.isNull();
+        return invalid(flags);
+    }
+    return fromObject(value.asObject());
+}
+
+inline Moment utcFromObject(const polycpp::JsonValue& value) {
+    if (!value.isObject()) {
+        MomentParsingFlags flags;
+        flags.nullInput = value.isNull();
+        flags.invalidFormat = !value.isNull();
+        Moment m = invalid(flags);
+        m.utc();
+        return m;
+    }
+    return utcFromObject(value.asObject());
 }
 
 } // namespace moment

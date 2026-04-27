@@ -8,11 +8,13 @@
 #include <gtest/gtest.h>
 #include <polycpp/moment/detail/aggregator.hpp>
 #include <polycpp/core/json.hpp>
+#include <limits>
 
 using namespace polycpp::moment;
 using polycpp::JsonObject;
 using polycpp::JsonArray;
 using polycpp::JsonValue;
+using polycpp::Date;
 namespace JSON = polycpp::JSON;
 
 // ═════════════════════════════════════════════════════════════════════
@@ -193,6 +195,68 @@ TEST(JsonIntegrationTest, UtcFromObjectWithTime) {
     EXPECT_EQ(m.minute(), 30);
 }
 
+TEST(JsonIntegrationTest, FromObjectAcceptsJsonValueObject) {
+    JsonValue value(JsonObject{
+        {"year", 2024}, {"month", 2}, {"date", 15},
+        {"hour", 14}, {"minute", 30}
+    });
+    auto m = fromObject(value);
+    EXPECT_TRUE(m.isValid());
+    EXPECT_EQ(m.year(), 2024);
+    EXPECT_EQ(m.month(), 2);
+    EXPECT_EQ(m.date(), 15);
+    EXPECT_EQ(m.hour(), 14);
+    EXPECT_EQ(m.minute(), 30);
+}
+
+TEST(JsonIntegrationTest, UtcFromObjectAcceptsJsonValueObject) {
+    JsonValue value(JsonObject{{"years", 2024}, {"months", 0}, {"date", 1}});
+    auto m = utcFromObject(value);
+    EXPECT_TRUE(m.isValid());
+    EXPECT_TRUE(m.isUtc());
+    EXPECT_EQ(m.year(), 2024);
+    EXPECT_EQ(m.month(), 0);
+    EXPECT_EQ(m.date(), 1);
+}
+
+TEST(JsonIntegrationTest, FromObjectRejectsNonObjectJsonValue) {
+    auto m = fromObject(JsonValue("2024-03-15"));
+    EXPECT_FALSE(m.isValid());
+    EXPECT_TRUE(m.parsingFlags().invalidFormat);
+
+    auto nullMoment = utcFromObject(JsonValue(nullptr));
+    EXPECT_FALSE(nullMoment.isValid());
+    EXPECT_TRUE(nullMoment.isUtc());
+    EXPECT_TRUE(nullMoment.parsingFlags().nullInput);
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// polycpp::Date interop
+// ═════════════════════════════════════════════════════════════════════
+
+TEST(JsonIntegrationTest, FromDateAcceptsPolycppDate) {
+    Date date(1710513045123.0);
+    auto m = fromDate(date);
+    EXPECT_TRUE(m.isValid());
+    EXPECT_TRUE(m.isLocal());
+    EXPECT_EQ(m.valueOf(), 1710513045123LL);
+}
+
+TEST(JsonIntegrationTest, UtcFromDateAcceptsPolycppDate) {
+    Date date(1710513045123.0);
+    auto m = utcFromDate(date);
+    EXPECT_TRUE(m.isValid());
+    EXPECT_TRUE(m.isUtc());
+    EXPECT_EQ(m.valueOf(), 1710513045123LL);
+}
+
+TEST(JsonIntegrationTest, FromDateRejectsInvalidPolycppDate) {
+    Date date(std::numeric_limits<double>::quiet_NaN());
+    auto m = fromDate(date);
+    EXPECT_FALSE(m.isValid());
+    EXPECT_TRUE(m.parsingFlags().invalidFormat);
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // Moment toObject/fromObject round-trip
 // ═════════════════════════════════════════════════════════════════════
@@ -313,6 +377,25 @@ TEST(JsonIntegrationTest, DurationFromJsonObjectIgnoresUnknownKeys) {
     EXPECT_EQ(d.hours(), 5);
 }
 
+TEST(JsonIntegrationTest, DurationFromJsonValueObject) {
+    JsonValue value(JsonObject{{"hours", 2}, {"minutes", 30}});
+    auto d = duration(value);
+    EXPECT_TRUE(d.isValid());
+    EXPECT_EQ(d.hours(), 2);
+    EXPECT_EQ(d.minutes(), 30);
+}
+
+TEST(JsonIntegrationTest, DurationConstructorFromJsonValueObject) {
+    Duration d(JsonValue(JsonObject{{"weeks", 1}, {"days", 2}}));
+    EXPECT_TRUE(d.isValid());
+    EXPECT_EQ(d.days(), 9);
+}
+
+TEST(JsonIntegrationTest, DurationFromJsonValueRejectsNonObject) {
+    auto d = duration(JsonValue("PT2H"));
+    EXPECT_FALSE(d.isValid());
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // Duration toObject/fromObject round-trip
 // ═════════════════════════════════════════════════════════════════════
@@ -374,4 +457,48 @@ TEST(JsonIntegrationTest, MomentToArraySerializesToJson) {
     EXPECT_TRUE(parsed.isArray());
     EXPECT_EQ(parsed.asArray().size(), 7u);
     EXPECT_EQ(parsed[0].asInt(), 2024);
+}
+
+TEST(JsonIntegrationTest, MomentSerializesDirectlyWithJsonStringify) {
+    auto m = utcFromMs(1710513045123LL);
+    EXPECT_EQ(JSON::stringify(m), "\"" + m.toJSON() + "\"");
+}
+
+TEST(JsonIntegrationTest, DurationSerializesDirectlyWithJsonStringify) {
+    auto d = duration(DurationInput{.hours = 2, .minutes = 30});
+    EXPECT_EQ(JSON::stringify(d), "\"" + d.toJSON() + "\"");
+}
+
+TEST(JsonIntegrationTest, ParsingFlagsConvertToJsonObject) {
+    auto m = parse("2024-03-15 extra", "YYYY-MM-DD", true);
+    auto flags = m.parsingFlags();
+    auto obj = flags.toObject();
+
+    EXPECT_EQ(obj.at("charsLeftOver").asInt(), 6);
+    EXPECT_TRUE(obj.at("unusedTokens").isArray());
+    EXPECT_TRUE(obj.at("unusedInput").isArray());
+    EXPECT_TRUE(obj.at("parsedDateParts").isArray());
+    EXPECT_TRUE(obj.at("invalidMonth").isNull());
+    EXPECT_TRUE(flags.toJSON().isObject());
+}
+
+TEST(JsonIntegrationTest, CreationDataConvertToJsonObject) {
+    auto m = parse("2024-03-15 extra", "YYYY-MM-DD", true);
+    auto data = m.creationData();
+    auto obj = data.toObject();
+
+    EXPECT_EQ(obj.at("input").asString(), "2024-03-15 extra");
+    EXPECT_EQ(obj.at("format").asString(), "YYYY-MM-DD");
+    EXPECT_FALSE(obj.at("isUTC").asBool());
+    EXPECT_TRUE(obj.at("strict").asBool());
+    EXPECT_TRUE(data.toJSON().isObject());
+}
+
+TEST(JsonIntegrationTest, DiagnosticObjectsSerializeDirectlyWithJsonStringify) {
+    auto m = parse("2024-03-15 extra", "YYYY-MM-DD", true);
+    auto flagsJson = JSON::stringify(m.parsingFlags());
+    auto dataJson = JSON::stringify(m.creationData());
+
+    EXPECT_TRUE(JSON::parse(flagsJson).isObject());
+    EXPECT_EQ(JSON::parse(dataJson)["format"].asString(), "YYYY-MM-DD");
 }

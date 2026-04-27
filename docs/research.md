@@ -131,7 +131,7 @@ The published npm artifact was also inspected because consumers load `moment.js`
 ## Polycpp ecosystem reuse analysis
 
 - polycpp core paths inspected: `<repo path>/../polycpp/include/polycpp/core/date.hpp`, `<repo path>/../polycpp/include/polycpp/core/math.hpp`, `<repo path>/../polycpp/include/polycpp/core/number.hpp`, `<repo path>/../polycpp/include/polycpp/core/json.hpp`, and `<repo path>/../polycpp/include/polycpp/core/error.hpp`
-- polycpp core types/functions selected: `polycpp::Date`, `polycpp::Math`, `polycpp::Number`, `polycpp::JsonObject`, `polycpp::JsonArray`, and `polycpp::RangeError`
+- polycpp core types/functions selected: `polycpp::Date`, `polycpp::Math`, `polycpp::Number`, `polycpp::JsonValue`, `polycpp::JsonObject`, `polycpp::JsonArray`, and `polycpp::RangeError`
 - polycpp core types/functions rejected: `polycpp::Temporal` is not used for v0 because upstream Moment semantics are mutable, `Date`-based, and duration-bucket-based rather than Temporal-style immutable value types
 - companion libs inspected for reusable APIs: `content-type`, `range-parser`, `picomatch`, and nearby HTTP/string companions
 - companion libs selected for reuse: none; Moment is a standalone date/time library with no runtime companion dependency
@@ -214,5 +214,5 @@ No core Moment.js parity items are currently tracked as deferred.
 - unsupported APIs: JavaScript runtime packaging, exact host-engine native `Date.parse` quirks, exact TypeScript overload parity, and mutable runtime-only package globals such as deprecation hooks, fallback hooks, default-format globals, version metadata, and plugin/prototype mutation points; deprecated aliases such as `lang`, `zone`, `dates`, `months`, `years`, and `isDSTShifted` are intentionally omitted and not tracked as deferred work
 - out-of-scope companion package behavior: full IANA timezone database support is provided upstream by the separate `moment-timezone` package, not core `moment`; this port keeps core Moment's UTC, local-time, and fixed-offset scope
 - dependency plan: no runtime dependency repos are needed; use base `polycpp` only
-- polycpp modules to use: `Date`, `Math`, `Number`, `JsonObject`, `JsonArray`, and `RangeError`
+- polycpp modules to use: `Date`, `Math`, `Number`, `JsonValue`, `JsonObject`, `JsonArray`, and `RangeError`
 - missing polycpp primitives: no blocking missing primitive for v0; a future `moment-timezone` companion would need a dedicated timezone database abstraction or generated tzdb data

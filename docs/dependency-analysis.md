@@ -103,7 +103,7 @@ C++ replacements:
 - `polycpp::Math` and `polycpp::Number` for JavaScript-style numeric behavior
 - `std::regex` and explicit token parsing for selected parser behavior
 - `std::vector`, `std::array`, `std::string`, `std::variant`, and typed structs for JavaScript arrays/objects
-- `polycpp::JsonObject` and `polycpp::JsonArray` for object/array conversion APIs
+- `polycpp::JsonValue`, `polycpp::JsonObject`, and `polycpp::JsonArray` for JSON interop, object/array conversion APIs, and diagnostic serialization
 - no replacement for JavaScript package/runtime deprecation warning hooks in v0
 
 ### Framework object boundary usage
@@ -116,7 +116,7 @@ C++ replacements:
 
 - Implement the selected v0 API directly in this repo because Moment has no runtime dependencies and depends heavily on date/time semantics rather than reusable companion packages.
 - Use `polycpp::Date` for JavaScript Date parity instead of plain `std::chrono` wherever component normalization or local/UTC getters matter.
-- Use typed factory overloads and `JsonObject` input for object-style creation instead of mirroring every JavaScript dynamic overload.
+- Use typed factory overloads plus `JsonObject` and object-valued `JsonValue` input for object-style creation instead of mirroring every JavaScript dynamic overload.
 - Preserve Moment's mutable, chainable instance style in C++ member methods.
 - Preserve duration three-bucket storage and bubbling because total conversion and component display differ from simple millisecond storage.
 - Use `polycpp::Date::parse` for deterministic JavaScript `Date` round-trip fallback formats; treat unsupported host-specific parse strings as invalid moments.

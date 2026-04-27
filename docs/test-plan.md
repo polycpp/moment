@@ -12,12 +12,12 @@
 - `tests/test_parse.cpp`: ISO 8601, RFC 2822, explicit ISO/RFC sentinels, deterministic `polycpp::Date` fallback formats, custom format parsing, locale/ISO week parsing, weekday mismatch diagnostics, HTML5 format constants, strict parsing, parse diagnostics, creation metadata, multiple formats, UTC factories, fixed-offset parsing, invalid inputs, min/max helpers, and round trips.
 - `tests/test_display.cpp`: relative time, calendar output/key selection including explicit format overrides, JSON/string display, `toDate`, `inspect`, arrays, objects, timezone convenience methods, localeData, and week-count helpers.
 - `tests/test_query.cpp`: validation, comparison helpers, `isBetween`, `isDST`, and unit-granularity comparison behavior.
-- `tests/test_json_integration.cpp`: `JsonObject` and `JsonArray` integration for moment and duration conversion APIs.
+- `tests/test_json_integration.cpp`: `JsonValue`, `JsonObject`, `JsonArray`, `polycpp::Date`, direct `JSON::stringify`, and diagnostic-object integration for moment and duration conversion APIs.
 
 ## Integration tests
 
 - Parse then format ISO and custom-format strings and assert round-trip component stability.
-- Convert moments to JSON-style arrays/objects and reconstruct local or UTC moments through object factories.
+- Convert moments to JSON-style arrays/objects and reconstruct local or UTC moments through `JsonObject` and object-valued `JsonValue` factories.
 - Combine moment arithmetic and duration arithmetic in examples such as countdowns, standup summaries, and log-time reports.
 - Build example programs with `POLYCPP_MOMENT_BUILD_EXAMPLES=ON` to verify public headers and link behavior.
 - Build Doxygen/Sphinx documentation so API references and examples stay in sync with public declarations.
@@ -52,7 +52,7 @@
   - named IANA timezone database tests are omitted because upstream implements them in `moment-timezone`, not core `moment`
   - era-specific formatting/parsing cases are covered for English AD/BC and generated Japanese era data
   - `moment.HTML5_FMT` parity is covered by constant-value, formatting, and strict parsing tests
-  - diagnostic/interoperability parity is covered by `creationData`, `parsingFlags`, `invalidAt`, `inspect`, and `toDate` tests
+  - diagnostic/interoperability parity is covered by `creationData`, `parsingFlags`, `invalidAt`, `inspect`, `toDate`, `JsonValue`, and direct `JSON::stringify` tests
 
 ## Security and fail-closed tests
 

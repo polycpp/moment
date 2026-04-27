@@ -4,15 +4,16 @@
 |---|---|---|---|
 | `moment()` | `polycpp::moment::now()` and `Moment()` | adapted | C++ exposes explicit construction and factory names instead of a callable namespace object. |
 | `moment(string)` | `parse(const std::string&)` | adapted | Auto-detects ISO 8601 and RFC 2822, then uses deterministic `polycpp::Date::parse` fallback formats. |
+| `moment(Date)` | `fromDate(const polycpp::Date&)` | adapted | Copies the timestamp from a `polycpp::Date`; invalid Date values produce invalid moments. |
 | `moment(string, format)` | `parse(input, format)` | direct | Uses Moment-style format tokens for the implemented token set. |
 | `moment(string, format, strict)` | `parse(input, format, strict)` | direct | Strict mode rejects extra unmatched input. |
 | `moment(string, string[])` | `parse(input, std::vector<std::string>)` | direct | Tries formats in order and returns the first valid parse. |
 | `moment.ISO_8601` / `moment.RFC_2822` | `ISO_8601` / `RFC_2822` | direct | Explicit parser sentinels for `parse`, `utcFromFormat`, and `parseZone` format overloads. |
 | `moment.parseTwoDigitYear` | `parseTwoDigitYear` | direct | Uses the upstream pivot: `00`-`68` -> `2000`-`2068`, `69`-`99` -> `1969`-`1999`. |
-| `moment.utc(...)` | `utcNow`, `utcFromString`, `utcFromFormat`, `utcFromMs`, `utcFromDate`, `utcFromObject` | adapted | Dynamic overloads are split into typed factories; formatted inputs honor parsed offsets before converting to UTC. |
+| `moment.utc(...)` | `utcNow`, `utcFromString`, `utcFromFormat`, `utcFromMs`, `utcFromDate`, `utcFromObject` | adapted | Dynamic overloads are split into typed factories, including `polycpp::Date`, `JsonObject`, and `JsonValue` inputs; formatted inputs honor parsed offsets before converting to UTC. |
 | `moment.unix(seconds)` | `fromUnixTimestamp(int64_t)` | direct | Converts seconds to milliseconds. |
 | `moment.parseZone(...)` | `parseZone(input)` and `parseZone(input, format)` | direct | Preserves parsed fixed offset for supported string formats; assumes UTC when no offset is present. |
-| `moment.duration(...)` | `duration(...)` and `Duration` constructors | adapted | Dynamic arguments map to typed overloads, ISO string input, `DurationInput`, or `JsonObject`. |
+| `moment.duration(...)` | `duration(...)` and `Duration` constructors | adapted | Dynamic arguments map to typed overloads, ISO string input, `DurationInput`, `JsonObject`, or `JsonValue`. |
 | `moment.invalid()` | `invalid()` | direct | Produces an invalid `Moment`. |
 | `moment.min` / `moment.max` | `min` / `max` | direct | Supports initializer-list and vector overloads. |
 | `moment.defineLocale` | `defineLocale` | direct | Uses typed `LocaleData`. |
@@ -46,7 +47,7 @@
 | `moment.fn.valueOf` | `Moment::valueOf` | direct | Returns millisecond timestamp. |
 | `moment.fn.isValid/isLeapYear/isUtc/isUTC/isLocal/isUtcOffset/isDST` | matching `Moment` member methods | direct | Query methods return typed booleans. |
 | `moment.fn.hasAlignedHourOffset/zoneAbbr/zoneName` | matching `Moment` member methods | direct | Matches core Moment fixed-offset behavior; named-zone data remains outside core Moment scope. |
-| `moment.fn.creationData/parsingFlags/invalidAt` | matching `Moment` member methods | adapted | JavaScript diagnostic objects become typed `MomentCreationData` and `MomentParsingFlags` structs. |
+| `moment.fn.creationData/parsingFlags/invalidAt` | matching `Moment` member methods | adapted | JavaScript diagnostic objects become typed `MomentCreationData` and `MomentParsingFlags` structs with `toObject()`/`toJSON()` adapters. |
 | `moment.fn.weeksInWeekYear/isoWeeksInISOWeekYear` | matching `Moment` member methods | direct | Complements `weeksInYear` and `isoWeeksInYear`. |
 | `moment.fn.isBefore/isAfter/isSame/isBetween/isSameOrBefore/isSameOrAfter` | matching `Moment` member methods | direct | Supports raw and unit-granularity comparisons. |
 | `moment.fn.clone` | `Moment::clone` | direct | Returns an independent copy. |
@@ -59,7 +60,7 @@
 | Per-call duration thresholds | `RelativeTimeThresholds` | adapted | JavaScript threshold option objects become an optional-field C++ struct. |
 | Locale parser hooks | `LocaleParseEntry` vectors on `LocaleData` | adapted | Upstream locale `preparse`, month/weekday parse, meridiem parse, and ordinal parse behavior is generated into C++ parser tables. |
 | Locale era specs | `EraSpec` and `LocaleData::eras` | direct | Supports `since`, `until`, `offset`, `name`, `narrow`, and `abbr` era entries. |
-| JavaScript object creation input | `fromObject`, `utcFromObject`, `Duration(JsonObject)`, `duration(JsonObject)` | adapted | Plain JS object overloads become explicit JSON object APIs. |
+| JavaScript object creation input | `fromObject`, `utcFromObject`, `Duration(JsonObject/JsonValue)`, `duration(JsonObject/JsonValue)` | adapted | Plain JS object overloads become explicit `JsonObject` APIs and accept `JsonValue` when the value already contains an object. |
 | `moment.months`, `moment.monthsShort`, `moment.weekdays`, `moment.weekdaysShort`, `moment.weekdaysMin` | matching free functions | direct | Supports array, index, format-context, and locale-sorted weekday overloads as typed C++ functions. |
 | `moment.HTML5_FMT` | `HTML5_FMT` constants namespace | direct | Exposes upstream HTML5 input format strings, with `html5_fmt` as a C++-style namespace alias. |
 | `moment.isDate` / `moment.isMoment` / `moment.isDuration` | static C++ types | omitted | Runtime type predicates are not meaningful for statically typed C++; date values use the `polycpp::Date` type directly. |

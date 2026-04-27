@@ -32,10 +32,19 @@ Parse from string
 From components
 ---------------
 
-.. doxygenfunction:: polycpp::moment::fromDate
-.. doxygenfunction:: polycpp::moment::utcFromDate
-.. doxygenfunction:: polycpp::moment::fromObject
-.. doxygenfunction:: polycpp::moment::utcFromObject
+Use these when the input is already structured and should not go
+through string parsing. Component overloads use Moment.js month
+numbering, where January is ``0``. ``polycpp::Date`` overloads copy
+the timestamp from an existing JavaScript-style date object.
+
+.. doxygenfunction:: polycpp::moment::fromDate(const polycpp::Date&)
+.. doxygenfunction:: polycpp::moment::fromDate(int, int, int, int, int, int, int)
+.. doxygenfunction:: polycpp::moment::utcFromDate(const polycpp::Date&)
+.. doxygenfunction:: polycpp::moment::utcFromDate(int, int, int, int, int, int, int)
+.. doxygenfunction:: polycpp::moment::fromObject(const polycpp::JsonObject&)
+.. doxygenfunction:: polycpp::moment::fromObject(const polycpp::JsonValue&)
+.. doxygenfunction:: polycpp::moment::utcFromObject(const polycpp::JsonObject&)
+.. doxygenfunction:: polycpp::moment::utcFromObject(const polycpp::JsonValue&)
 
 From timestamps
 ---------------

@@ -50,7 +50,14 @@ alias the serialisation layer should use — same output as
 no arguments. :cpp:func:`Moment::toArray
 <polycpp::moment::Moment::toArray>` and
 :cpp:func:`Moment::toObject <polycpp::moment::Moment::toObject>`
-expose the decomposed components.
+expose the decomposed components as ``polycpp::JsonArray`` and
+``polycpp::JsonObject``. ``polycpp::JSON::stringify`` can serialize
+``Moment`` and ``Duration`` values directly through their ``toJSON``
+methods. :cpp:struct:`MomentParsingFlags
+<polycpp::moment::MomentParsingFlags>` and
+:cpp:struct:`MomentCreationData
+<polycpp::moment::MomentCreationData>` also provide ``toObject`` and
+``toJSON`` helpers for diagnostics.
 :cpp:func:`Moment::toDate <polycpp::moment::Moment::toDate>` returns
 a ``polycpp::Date`` copy, and
 :cpp:func:`Moment::inspect <polycpp::moment::Moment::inspect>` returns

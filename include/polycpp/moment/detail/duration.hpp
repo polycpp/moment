@@ -22,6 +22,7 @@
 #include <polycpp/moment/locale.hpp>
 #include <polycpp/moment/detail/units.hpp>
 #include <polycpp/moment/detail/locale.hpp>
+#include <polycpp/moment/detail/json.hpp>
 
 #include <cmath>    // std::modf, std::fmod (no polycpp equivalent)
 #include <cstdlib>  // std::abs for integer types
@@ -100,6 +101,20 @@ inline const RelativeTimeValue& getRelativeTimeEntry(
     if (key == "yy") return rt.yy;
     // Fallback (should not happen)
     return rt.s;
+}
+
+/// @brief Convert a JSON duration object into typed duration input.
+inline DurationInput durationInputFromJsonObject(const polycpp::JsonObject& obj) {
+    return DurationInput{
+        .years = jsonGetInt(obj, "years", 0),
+        .months = jsonGetInt(obj, "months", 0),
+        .weeks = jsonGetInt(obj, "weeks", 0),
+        .days = jsonGetInt(obj, "days", 0),
+        .hours = jsonGetInt(obj, "hours", 0),
+        .minutes = jsonGetInt(obj, "minutes", 0),
+        .seconds = jsonGetInt(obj, "seconds", 0),
+        .milliseconds = jsonGetInt(obj, "milliseconds", 0)
+    };
 }
 
 } // namespace detail
@@ -268,31 +283,14 @@ inline Duration::Duration(const DurationInput& input)
 }
 
 inline Duration::Duration(const polycpp::JsonObject& obj)
-    : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
-      is_valid_(true), locale_key_(globalLocale()) {
+    : Duration(detail::durationInputFromJsonObject(obj)) {}
 
-    auto getInt = [&](const std::string& key, int def) -> int {
-        auto it = obj.find(key);
-        if (it != obj.end() && it->second.isNumber()) return it->second.asInt();
-        return def;
-    };
-
-    int years   = getInt("years", 0);
-    int months  = getInt("months", 0);
-    int weeks   = getInt("weeks", 0);
-    int days    = getInt("days", 0);
-    int hours   = getInt("hours", 0);
-    int minutes = getInt("minutes", 0);
-    int seconds = getInt("seconds", 0);
-    int ms      = getInt("milliseconds", 0);
-
-    raw_months_ = years * 12 + months;
-    raw_days_   = days + weeks * 7;
-    raw_milliseconds_ = static_cast<int64_t>(ms)
-                       + static_cast<int64_t>(seconds) * 1000LL
-                       + static_cast<int64_t>(minutes) * 60000LL
-                       + static_cast<int64_t>(hours) * 3600000LL;
-    bubble();
+inline Duration::Duration(const polycpp::JsonValue& value)
+    : Duration(value.isObject() ? detail::durationInputFromJsonObject(value.asObject())
+                                : DurationInput{}) {
+    if (!value.isObject()) {
+        is_valid_ = false;
+    }
 }
 
 inline Duration Duration::clone() const {
@@ -746,6 +744,10 @@ inline Duration duration(const DurationInput& input) {
 
 inline Duration duration(const polycpp::JsonObject& obj) {
     return Duration(obj);
+}
+
+inline Duration duration(const polycpp::JsonValue& value) {
+    return Duration(value);
 }
 
 } // namespace moment

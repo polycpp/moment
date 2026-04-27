@@ -26,12 +26,12 @@ Implemented:
 - parsing factories for ISO 8601, RFC 2822, explicit ISO/RFC sentinels, custom formats, UTC, fixed-offset inputs, and deterministic `polycpp::Date` fallback formats
 - Moment-style formatting tokens and generated Moment.js locale data, including locale-specific parse tables
 - mutable getters, setters, add/subtract, start/end, UTC/local, and offset APIs
-- comparison, diff, relative-time, calendar, JSON object/array, and min/max helpers
+- comparison, diff, relative-time, calendar, JSON object/array/value, and min/max helpers
 - locale-backed era formatting and parsing, including generated Japanese era data
 - Moment.js-compatible HTML5 input format constants
 - typed locale registration, relative-time thresholds, and per-call duration humanize threshold overrides
 - relative-time rounding configuration and calendar key selection
-- parse diagnostics and interoperability helpers such as `parsingFlags`, `creationData`, `invalidAt`, `inspect`, and `toDate`
+- parse diagnostics and interoperability helpers such as `parsingFlags`, `creationData`, `invalidAt`, `inspect`, `toDate`, and `polycpp::Date`/`JsonValue` construction
 - per-moment and global locale selection
 - standalone month and weekday locale listers
 
@@ -101,7 +101,7 @@ std::cout << elapsed.toISOString() << '\n';
 
 - `Moment` represents a mutable date/time value.
 - `Duration` represents Moment-style three-bucket duration data.
-- `parse`, `utcFromString`, `utcFromDate`, `parseZone`, `fromObject`, `duration`, `min`, and `max` create values.
+- `parse`, `utcFromString`, `utcFromDate`, `parseZone`, `fromObject`, `duration`, `min`, and `max` create values, including overloads for `polycpp::Date`, `JsonObject`, and `JsonValue` inputs.
 - `Moment::locale`, `Duration::locale`, `defineLocale`, `updateLocale`, `localeData`, `globalLocale`, `locales`, and `relativeTimeThreshold` manage locale behavior.
 - `normalizeUnit` maps Moment-style unit aliases to typed `Unit` values.
 

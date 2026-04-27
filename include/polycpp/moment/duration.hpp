@@ -83,6 +83,18 @@ public:
      */
     explicit Duration(const polycpp::JsonObject& obj);
 
+    /**
+     * @brief Construct from a JsonValue containing a JsonObject with unit keys.
+     *
+     * Accepts the same keys as Duration(const JsonObject&). Non-object values
+     * create an invalid Duration.
+     *
+     * @param value JsonValue containing duration component keys.
+     * @see https://momentjs.com/docs/#/durations/creating/
+     * @since 1.0.0
+     */
+    explicit Duration(const polycpp::JsonValue& value);
+
     /// @brief Create a deep copy.
     Duration clone() const;
 
@@ -243,6 +255,20 @@ Duration duration(const DurationInput& input);
  * @since 1.0.0
  */
 Duration duration(const polycpp::JsonObject& obj);
+
+/**
+ * @brief Create a Duration from a JsonValue containing a JsonObject with unit keys.
+ * @param value JsonValue containing optional keys: years, months, weeks, days,
+ *              hours, minutes, seconds, milliseconds.
+ * @par Example
+ * @code
+ * auto value = JsonValue(JsonObject{{"hours", 2}, {"minutes", 30}});
+ * auto d = moment::duration(value);
+ * @endcode
+ * @see https://momentjs.com/docs/#/durations/creating/
+ * @since 1.0.0
+ */
+Duration duration(const polycpp::JsonValue& value);
 
 } // namespace moment
 } // namespace polycpp

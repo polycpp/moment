@@ -1610,6 +1610,17 @@ inline Moment fromMilliseconds(int64_t ms) {
     return Moment(ms);
 }
 
+// ── fromDate(polycpp::Date) ──────────────────────────────────────────
+
+inline Moment fromDate(const polycpp::Date& date) {
+    if (!date.isValid()) {
+        MomentParsingFlags flags;
+        flags.invalidFormat = true;
+        return invalid(flags);
+    }
+    return Moment(static_cast<int64_t>(date.valueOf()));
+}
+
 // ── fromDate(components, local time) ─────────────────────────────────
 
 inline Moment fromDate(int year, int month, int day, int hour,
@@ -1680,6 +1691,18 @@ inline Moment utcFromFormat(const std::string& input, const std::string& format)
 inline Moment utcFromMs(int64_t ms) {
     Moment m(ms);
     m.utc();
+    return m;
+}
+
+// ── utcFromDate(polycpp::Date) ───────────────────────────────────────
+
+inline Moment utcFromDate(const polycpp::Date& date) {
+    Moment m = fromDate(date);
+    if (m.isValid()) {
+        m.utc();
+    } else {
+        Moment::InternalAccess::setUtc(m, true);
+    }
     return m;
 }
 

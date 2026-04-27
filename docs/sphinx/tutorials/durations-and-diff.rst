@@ -82,6 +82,11 @@ Tests are cleaner when you can name the components:
    );
    assert(fromCfg.asHours() == 8.5);
 
+   // Or pass a JsonValue directly when config has already been parsed:
+   polycpp::JsonValue value(polycpp::JsonObject{{"hours", 8}, {"minutes", 30}});
+   m::Duration fromValue = m::duration(value);
+   assert(fromValue.asHours() == 8.5);
+
 What you learned
 ----------------
 
@@ -94,6 +99,6 @@ What you learned
 - ISO 8601 round-trips via :cpp:func:`Duration::toISOString
   <polycpp::moment::Duration::toISOString>` and the
   single-string constructor.
-- :cpp:struct:`DurationInput <polycpp::moment::DurationInput>` and
-  the ``JsonObject`` overload make test and config loading
+- :cpp:struct:`DurationInput <polycpp::moment::DurationInput>`,
+  ``JsonObject``, and ``JsonValue`` overloads make test and config loading
   readable.

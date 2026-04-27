@@ -7,7 +7,7 @@ No core Moment.js parity items are currently tracked as deferred.
 ## Deliberate Behavior Changes
 
 - The JavaScript callable namespace `moment(...)` is split into explicit C++ constructors and factory functions such as `now`, `parse`, `utcFromString`, `fromDate`, and `duration`.
-- Dynamic JavaScript input overloads are represented by typed C++ overloads and `polycpp::JsonObject` APIs for object-style construction.
+- Dynamic JavaScript input overloads are represented by typed C++ overloads, `polycpp::Date` factories, and `polycpp::JsonObject`/object-valued `polycpp::JsonValue` APIs for object-style construction.
 - Unformatted string parsing uses Moment-style ISO/RFC detection first, then the deterministic `polycpp::Date::parse` fallback for JavaScript `Date` round-trip formats.
 - Unsupported or implementation-specific native `Date.parse` inputs return invalid `Moment` values instead of inheriting host-engine parsing quirks.
 - Locale configuration uses typed `LocaleData` fields and `std::function` callbacks rather than arbitrary JavaScript objects.
