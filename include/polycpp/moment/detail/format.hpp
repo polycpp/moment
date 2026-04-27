@@ -24,7 +24,7 @@
  * Moment (year, month, day, etc.) and returns a string. Zero-padding, 12-hour
  * conversion, ordinal suffixes, and locale lookups are handled per-token.
  *
- * @since 0.2.0
+ * @since 1.0.0
  */
 #pragma once
 
@@ -163,17 +163,18 @@ inline const std::vector<std::string>& formatTokens() {
         // 6-char
         "YYYYYY", "SSSSSS",
         // 5-char
-        "YYYYY", "NNNNN", "SSSSS", "Hmmss", "hmmss",
+        "YYYYY", "GGGGG", "ggggg", "NNNNN", "SSSSS", "Hmmss", "hmmss",
         // 4-char
-        "YYYY", "MMMM", "DDDD", "dddd", "GGGG", "gggg", "NNNN", "SSSS", "Hmm",
+        "YYYY", "MMMM", "DDDo", "DDDD", "dddd", "GGGG", "gggg", "NNNN", "SSSS", "yyyy", "Hmm",
         // 3-char
-        "MMM", "DDD", "ddd", "SSS", "NNN",
+        "MMM", "DDD", "ddd", "SSS", "NNN", "yyy",
         // 2-char
         "YY", "MM", "Mo", "DD", "Do", "dd", "do", "HH", "hh", "kk", "mm",
-        "ss", "SS", "ZZ", "WW", "Wo", "ww", "wo", "GG", "gg", "NN", "Qo",
+        "ss", "SS", "ZZ", "zz", "WW", "Wo", "ww", "wo", "GG", "gg", "NN", "Qo",
+        "yo", "yy",
         // 1-char
         "Q", "M", "D", "d", "H", "h", "k", "m", "s", "S",
-        "A", "a", "Z", "X", "x", "W", "w", "E", "e", "N",
+        "A", "a", "Z", "z", "X", "x", "W", "w", "G", "g", "E", "e", "N", "Y", "y",
     };
     return tokens;
 }
@@ -203,6 +204,16 @@ inline std::vector<FormatSegment> tokenize(const std::string& fmt) {
             std::string lit = fmt.substr(i + 1, end - i - 1);
             segments.push_back({SegmentType::Literal, lit});
             i = end + 1;
+            continue;
+        }
+
+        if (fmt[i] == '\\' && i + 1 < fmt.size()) {
+            if (!segments.empty() && segments.back().type == SegmentType::Literal) {
+                segments.back().value += fmt[i + 1];
+            } else {
+                segments.push_back({SegmentType::Literal, std::string(1, fmt[i + 1])});
+            }
+            i += 2;
             continue;
         }
 
@@ -237,7 +248,8 @@ inline std::vector<FormatSegment> tokenize(const std::string& fmt) {
 /// @brief Format a single token for the given Moment.
 /// Returns the string representation of the token's value.
 inline std::string formatToken(const std::string& token, const Moment& m,
-                                const LocaleData& locale) {
+                                const LocaleData& locale,
+                                const std::string& format) {
     // Helper to convert 24h hour to 12h
     auto hour12 = [](int h) -> int {
         int h12 = h % 12;
@@ -247,6 +259,10 @@ inline std::string formatToken(const std::string& token, const Moment& m,
     // ── Year tokens ──
     if (token == "YYYY") {
         return zeroPad(m.year(), 4);
+    }
+    if (token == "Y") {
+        int y = m.year();
+        return y <= 9999 ? zeroPad(y, 4) : "+" + std::to_string(y);
     }
     if (token == "YY") {
         return zeroPad(m.year() % 100, 2);
@@ -259,6 +275,22 @@ inline std::string formatToken(const std::string& token, const Moment& m,
     }
     if (token == "YYYYY") {
         return zeroPad(m.year(), 5);
+    }
+    if (token == "y") {
+        return std::to_string(m.eraYear());
+    }
+    if (token == "yy") {
+        return zeroPad(m.eraYear(), 2);
+    }
+    if (token == "yyy") {
+        return zeroPad(m.eraYear(), 3);
+    }
+    if (token == "yyyy") {
+        return zeroPad(m.eraYear(), 4);
+    }
+    if (token == "yo") {
+        if (locale.ordinal) return locale.ordinal(m.eraYear(), "y");
+        return std::to_string(m.eraYear());
     }
 
     // ── Quarter token ──
@@ -273,12 +305,12 @@ inline std::string formatToken(const std::string& token, const Moment& m,
     // ── Month tokens ──
     if (token == "MMMM") {
         int mo = m.month();
-        if (mo >= 0 && mo < 12) return locale.months[mo];
+        if (mo >= 0 && mo < 12) return selectMonthNames(locale, format, false)[mo];
         return "";
     }
     if (token == "MMM") {
         int mo = m.month();
-        if (mo >= 0 && mo < 12) return locale.monthsShort[mo];
+        if (mo >= 0 && mo < 12) return selectMonthNames(locale, format, true)[mo];
         return "";
     }
     if (token == "MM") {
@@ -308,6 +340,10 @@ inline std::string formatToken(const std::string& token, const Moment& m,
     if (token == "DDDD") {
         return zeroPad(m.dayOfYear(), 3);
     }
+    if (token == "DDDo") {
+        if (locale.ordinal) return locale.ordinal(m.dayOfYear(), "DDD");
+        return std::to_string(m.dayOfYear());
+    }
     if (token == "DDD") {
         return std::to_string(m.dayOfYear());
     }
@@ -315,17 +351,17 @@ inline std::string formatToken(const std::string& token, const Moment& m,
     // ── Day of week tokens ──
     if (token == "dddd") {
         int d = m.day();
-        if (d >= 0 && d < 7) return locale.weekdays[d];
+        if (d >= 0 && d < 7) return selectWeekdayNames(locale, format, 0)[d];
         return "";
     }
     if (token == "ddd") {
         int d = m.day();
-        if (d >= 0 && d < 7) return locale.weekdaysShort[d];
+        if (d >= 0 && d < 7) return selectWeekdayNames(locale, format, 1)[d];
         return "";
     }
     if (token == "dd") {
         int d = m.day();
-        if (d >= 0 && d < 7) return locale.weekdaysMin[d];
+        if (d >= 0 && d < 7) return selectWeekdayNames(locale, format, 2)[d];
         return "";
     }
     if (token == "do") {
@@ -370,11 +406,17 @@ inline std::string formatToken(const std::string& token, const Moment& m,
     if (token == "GGGG") {
         return zeroPad(m.isoWeekYear(), 4);
     }
+    if (token == "GGGGG") {
+        return zeroPad(m.isoWeekYear(), 5);
+    }
     if (token == "GG") {
         return zeroPad(m.isoWeekYear() % 100, 2);
     }
     if (token == "gggg") {
         return zeroPad(m.weekYear(), 4);
+    }
+    if (token == "ggggg") {
+        return zeroPad(m.weekYear(), 5);
     }
     if (token == "gg") {
         return zeroPad(m.weekYear() % 100, 2);
@@ -486,6 +528,12 @@ inline std::string formatToken(const std::string& token, const Moment& m,
         int mins = abs_offset % 60;
         return std::string(1, sign) + zeroPad(hrs, 2) + zeroPad(mins, 2);
     }
+    if (token == "z") {
+        return m.zoneAbbr();
+    }
+    if (token == "zz") {
+        return m.zoneName();
+    }
 
     // ── Unix timestamp tokens ──
     if (token == "X") {
@@ -507,14 +555,11 @@ inline std::string formatToken(const std::string& token, const Moment& m,
         return std::to_string(m.valueOf());
     }
 
-    // ── Era tokens (N, NN, NNN, NNNN, NNNNN) — simplified ──
+    // ── Era tokens (N, NN, NNN, NNNN, NNNNN) ───────────────────────
     if (token.size() >= 1 && token[0] == 'N' && token.find_first_not_of('N') == std::string::npos) {
-        // Simple era: AD/BC
-        bool isAD = m.year() > 0;
-        if (token.size() <= 2) return isAD ? "AD" : "BC";
-        if (token.size() == 3) return isAD ? "AD" : "BC";
-        if (token.size() == 4) return isAD ? "Anno Domini" : "Before Christ";
-        return isAD ? "AD" : "BC";
+        if (token.size() <= 3) return m.eraAbbr();
+        if (token.size() == 4) return m.eraName();
+        return m.eraNarrow();
     }
 
     // Unknown token: return as literal
@@ -578,7 +623,7 @@ inline std::string formatMoment(const Moment& m, const std::string& format_str) 
         if (seg.type == detail::SegmentType::Literal) {
             result.append(seg.value);
         } else {
-            result.append(detail::formatToken(seg.value, m, loc));
+            result.append(detail::formatToken(seg.value, m, loc, fmt));
         }
     }
 

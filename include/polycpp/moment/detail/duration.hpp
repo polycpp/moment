@@ -13,7 +13,7 @@
  *   - src/lib/duration/humanize.js    (relative-time thresholds)
  *   - src/lib/duration/iso-string.js  (ISO 8601 serialization)
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 #pragma once
 
@@ -159,17 +159,17 @@ inline void Duration::bubble() {
 inline Duration::Duration()
     : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
       years_(0), months_(0), days_(0), hours_(0), minutes_(0),
-      seconds_(0), milliseconds_(0), is_valid_(true), locale_key_("en") {}
+      seconds_(0), milliseconds_(0), is_valid_(true), locale_key_(globalLocale()) {}
 
 inline Duration::Duration(int64_t milliseconds)
     : raw_milliseconds_(milliseconds), raw_days_(0), raw_months_(0),
-      is_valid_(true), locale_key_("en") {
+      is_valid_(true), locale_key_(globalLocale()) {
     bubble();
 }
 
 inline Duration::Duration(int amount, const std::string& unit)
     : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
-      is_valid_(true), locale_key_("en") {
+      is_valid_(true), locale_key_(globalLocale()) {
     Unit u = normalizeUnit(unit);
     switch (u) {
         case Unit::Year:
@@ -209,7 +209,7 @@ inline Duration::Duration(int amount, const std::string& unit)
 
 inline Duration::Duration(const std::string& iso_string)
     : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
-      is_valid_(true), locale_key_("en") {
+      is_valid_(true), locale_key_(globalLocale()) {
     // ISO 8601 duration regex, matching moment.js isoRegex
     // Allows optional leading sign, decimal values with . or ,
     static const std::regex isoRegex(
@@ -257,7 +257,7 @@ inline Duration::Duration(const std::string& iso_string)
 
 inline Duration::Duration(const DurationInput& input)
     : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
-      is_valid_(true), locale_key_("en") {
+      is_valid_(true), locale_key_(globalLocale()) {
     raw_months_ = input.years * 12 + input.months;
     raw_days_ = input.days + input.weeks * 7;
     raw_milliseconds_ = static_cast<int64_t>(input.milliseconds)
@@ -269,7 +269,7 @@ inline Duration::Duration(const DurationInput& input)
 
 inline Duration::Duration(const polycpp::JsonObject& obj)
     : raw_milliseconds_(0), raw_days_(0), raw_months_(0),
-      is_valid_(true), locale_key_("en") {
+      is_valid_(true), locale_key_(globalLocale()) {
 
     auto getInt = [&](const std::string& key, int def) -> int {
         auto it = obj.find(key);
@@ -369,32 +369,80 @@ inline Duration& Duration::subtract(const Duration& other) {
 
 // -- Humanize --
 
-inline std::string Duration::humanize(bool withSuffix) const {
-    if (!is_valid_) {
-        return localeData(locale_key_).invalidDate;
+namespace detail {
+
+struct EffectiveRelativeTimeThresholds {
+    double ss;
+    double s;
+    double m;
+    double h;
+    double d;
+    double w;
+    double M;
+};
+
+inline EffectiveRelativeTimeThresholds makeEffectiveRelativeTimeThresholds(
+    const RelativeTimeThresholds* overrides = nullptr) {
+    EffectiveRelativeTimeThresholds thresholds{
+        relativeTimeThreshold("ss"),
+        relativeTimeThreshold("s"),
+        relativeTimeThreshold("m"),
+        relativeTimeThreshold("h"),
+        relativeTimeThreshold("d"),
+        relativeTimeThreshold("w"),
+        relativeTimeThreshold("M")
+    };
+
+    if (!overrides) {
+        return thresholds;
     }
 
-    const auto& loc = localeData(locale_key_);
+    if (overrides->s) {
+        thresholds.s = *overrides->s;
+        if (!overrides->ss) {
+            thresholds.ss = *overrides->s - 1.0;
+        }
+    }
+    if (overrides->ss) thresholds.ss = *overrides->ss;
+    if (overrides->m) thresholds.m = *overrides->m;
+    if (overrides->h) thresholds.h = *overrides->h;
+    if (overrides->d) thresholds.d = *overrides->d;
+    if (overrides->w) thresholds.w = *overrides->w;
+    if (overrides->M) thresholds.M = *overrides->M;
+    return thresholds;
+}
+
+} // namespace detail
+
+inline std::string Duration::humanize(bool withSuffix) const {
+    return humanize(withSuffix, RelativeTimeThresholds{});
+}
+
+inline std::string Duration::humanize(const RelativeTimeThresholds& thresholds) const {
+    return humanize(false, thresholds);
+}
+
+inline std::string Duration::humanize(bool withSuffix,
+                                      const RelativeTimeThresholds& thresholdsOverride) const {
+    if (!is_valid_) {
+        return polycpp::moment::localeData(locale_key_).invalidDate;
+    }
+
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     const auto& rt = loc.relativeTime;
 
-    // Get thresholds
-    double th_ss = relativeTimeThreshold("ss");
-    double th_s  = relativeTimeThreshold("s");
-    double th_m  = relativeTimeThreshold("m");
-    double th_h  = relativeTimeThreshold("h");
-    double th_d  = relativeTimeThreshold("d");
-    double th_w  = relativeTimeThreshold("w");
-    double th_M  = relativeTimeThreshold("M");
+    const auto thresholds = detail::makeEffectiveRelativeTimeThresholds(&thresholdsOverride);
 
     // Compute totals using as() for each unit
     double totalMs = asMilliseconds();
-    int absSec    = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("s"))));
-    int absMin    = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("m"))));
-    int absHour   = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("h"))));
-    int absDay    = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("d"))));
-    int absMonth  = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("M"))));
-    int absWeek   = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("w"))));
-    int absYear   = static_cast<int>(polycpp::Math::round(polycpp::Math::abs(as("y"))));
+    auto roundFn = relativeTimeRounding();
+    int absSec    = static_cast<int>(roundFn(polycpp::Math::abs(as("s"))));
+    int absMin    = static_cast<int>(roundFn(polycpp::Math::abs(as("m"))));
+    int absHour   = static_cast<int>(roundFn(polycpp::Math::abs(as("h"))));
+    int absDay    = static_cast<int>(roundFn(polycpp::Math::abs(as("d"))));
+    int absMonth  = static_cast<int>(roundFn(polycpp::Math::abs(as("M"))));
+    int absWeek   = static_cast<int>(roundFn(polycpp::Math::abs(as("w"))));
+    int absYear   = static_cast<int>(roundFn(polycpp::Math::abs(as("y"))));
 
     bool isFuture = totalMs > 0;
 
@@ -403,31 +451,31 @@ inline std::string Duration::humanize(bool withSuffix) const {
     std::string key;
     int number = 0;
 
-    if (absSec <= static_cast<int>(th_ss)) {
+    if (absSec <= static_cast<int>(thresholds.ss)) {
         key = "s"; number = absSec;
-    } else if (absSec < static_cast<int>(th_s)) {
+    } else if (absSec < static_cast<int>(thresholds.s)) {
         key = "ss"; number = absSec;
     } else if (absMin <= 1) {
         key = "m"; number = 1;
-    } else if (absMin < static_cast<int>(th_m)) {
+    } else if (absMin < static_cast<int>(thresholds.m)) {
         key = "mm"; number = absMin;
     } else if (absHour <= 1) {
         key = "h"; number = 1;
-    } else if (absHour < static_cast<int>(th_h)) {
+    } else if (absHour < static_cast<int>(thresholds.h)) {
         key = "hh"; number = absHour;
     } else if (absDay <= 1) {
         key = "d"; number = 1;
-    } else if (absDay < static_cast<int>(th_d)) {
+    } else if (absDay < static_cast<int>(thresholds.d)) {
         key = "dd"; number = absDay;
-    } else if (th_w > 0) {
+    } else if (thresholds.w > 0) {
         // Weeks are enabled
         if (absWeek <= 1) {
             key = "w"; number = 1;
-        } else if (absWeek < static_cast<int>(th_w)) {
+        } else if (absWeek < static_cast<int>(thresholds.w)) {
             key = "ww"; number = absWeek;
         } else if (absMonth <= 1) {
             key = "M"; number = 1;
-        } else if (absMonth < static_cast<int>(th_M)) {
+        } else if (absMonth < static_cast<int>(thresholds.M)) {
             key = "MM"; number = absMonth;
         } else if (absYear <= 1) {
             key = "y"; number = 1;
@@ -437,7 +485,7 @@ inline std::string Duration::humanize(bool withSuffix) const {
     } else {
         if (absMonth <= 1) {
             key = "M"; number = 1;
-        } else if (absMonth < static_cast<int>(th_M)) {
+        } else if (absMonth < static_cast<int>(thresholds.M)) {
             key = "MM"; number = absMonth;
         } else if (absYear <= 1) {
             key = "y"; number = 1;
@@ -470,7 +518,7 @@ inline std::string Duration::humanize(bool withSuffix) const {
         }
     }
 
-    return output;
+    return loc.postformat ? loc.postformat(output) : output;
 }
 
 // -- Component getters --
@@ -550,6 +598,7 @@ inline double Duration::asMinutes() const { return as("m"); }
 inline double Duration::asHours() const { return as("h"); }
 inline double Duration::asDays() const { return as("d"); }
 inline double Duration::asWeeks() const { return as("w"); }
+inline double Duration::asQuarters() const { return as("Q"); }
 inline double Duration::asMonths() const { return as("M"); }
 inline double Duration::asYears() const { return as("y"); }
 
@@ -557,7 +606,7 @@ inline double Duration::asYears() const { return as("y"); }
 
 inline std::string Duration::toISOString() const {
     if (!is_valid_) {
-        return localeData(locale_key_).invalidDate;
+        return polycpp::moment::localeData(locale_key_).invalidDate;
     }
 
     // For ISO strings, moment.js does NOT use the normal bubbling rules.
@@ -636,6 +685,10 @@ inline std::string Duration::toJSON() const {
     return toISOString();
 }
 
+inline std::string Duration::toString() const {
+    return toISOString();
+}
+
 inline polycpp::JsonObject Duration::toObject() const {
     return polycpp::JsonObject{
         {"years", years_},
@@ -667,6 +720,10 @@ inline std::string Duration::locale() const {
 inline Duration& Duration::locale(const std::string& key) {
     locale_key_ = key;
     return *this;
+}
+
+inline const LocaleData& Duration::localeData() const {
+    return polycpp::moment::localeData(locale_key_);
 }
 
 // -- Factory functions --

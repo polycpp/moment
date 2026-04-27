@@ -11,7 +11,7 @@
  * declarations. The actual implementations are in detail/parse.hpp.
  *
  * @see https://momentjs.com/docs/#/parsing/
- * @since 0.2.0
+ * @since 1.0.0
  */
 #pragma once
 

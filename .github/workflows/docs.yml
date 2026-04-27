@@ -40,15 +40,17 @@ jobs:
         run: pip install -r docs/requirements.txt
 
       - name: Build documentation
-        run: bash docs/build.sh
+        run: python3 docs/build.py
 
       - name: Upload artifact
+        if: github.event.repository.private == false
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/build/html
 
   deploy:
     needs: build
+    if: github.event.repository.private == false
     runs-on: ubuntu-latest
     environment:
       name: github-pages

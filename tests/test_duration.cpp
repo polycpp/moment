@@ -187,6 +187,22 @@ TEST(Duration, HumanizeWithSuffix) {
     EXPECT_EQ(duration(DurationInput{.seconds = 44}).humanize(true), "in a few seconds");
 }
 
+TEST(Duration, HumanizePerCallThresholdOverrides) {
+    RelativeTimeThresholds secondsThreshold;
+    secondsThreshold.s = 40.0;
+    EXPECT_EQ(duration(44, "seconds").humanize(secondsThreshold), "a minute");
+    EXPECT_EQ(duration(44, "seconds").humanize(true, secondsThreshold), "in a minute");
+
+    RelativeTimeThresholds minuteThreshold;
+    minuteThreshold.m = 2.0;
+    EXPECT_EQ(duration(3, "minutes").humanize(minuteThreshold), "an hour");
+
+    RelativeTimeThresholds weekThreshold;
+    weekThreshold.d = 7.0;
+    weekThreshold.w = 4.0;
+    EXPECT_EQ(duration(14, "days").humanize(weekThreshold), "2 weeks");
+}
+
 // =========================================================================
 // Total getters (as*)
 // =========================================================================
@@ -278,6 +294,14 @@ TEST(Duration, ValueOfAndAsMilliseconds) {
     auto t1 = duration(2, "months").valueOf();
     auto t2 = static_cast<int64_t>(duration(2, "months").asMilliseconds());
     EXPECT_EQ(t1, t2);
+}
+
+TEST(Duration, UpstreamConvenienceAliases) {
+    EXPECT_DOUBLE_EQ(duration(6, "months").asQuarters(), 2.0);
+
+    auto d = duration(90, "minutes");
+    EXPECT_EQ(d.toString(), "PT1H30M");
+    EXPECT_EQ(d.localeData().name, "en");
 }
 
 // =========================================================================

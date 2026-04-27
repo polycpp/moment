@@ -7,7 +7,7 @@
  * normalized through this module.
  *
  * @see https://momentjs.com/docs/#/manipulating/
- * @since 0.1.0
+ * @since 1.0.0
  */
 #pragma once
 
@@ -22,7 +22,7 @@ namespace moment {
  * Each value corresponds to a Moment.js unit. Day and Date are distinct:
  * Day refers to the day-of-week (0-6), Date refers to the day-of-month (1-31).
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 enum class Unit {
     Year,          ///< Calendar year
@@ -53,7 +53,7 @@ enum class Unit {
  *
  * @param unit The unit string to normalize.
  * @return The canonical Unit, or Unit::Invalid if unrecognized.
- * @since 0.1.0
+ * @since 1.0.0
  */
 Unit normalizeUnit(const std::string& unit);
 
@@ -64,9 +64,11 @@ Unit normalizeUnit(const std::string& unit);
  *
  * @param unit The Unit enum value.
  * @return The canonical string, or "invalid" for Unit::Invalid.
- * @since 0.1.0
+ * @since 1.0.0
  */
 std::string unitToString(Unit unit);
 
 } // namespace moment
 } // namespace polycpp
+
+#include <polycpp/moment/detail/units.hpp>

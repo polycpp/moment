@@ -6,9 +6,22 @@ accumulates them in a single :cpp:class:`Duration
 <polycpp::moment::Duration>`, and prints the humanised total plus the
 bubbled components.
 
+Use this when logs, configs, or APIs already carry durations in ISO
+8601 form. Invalid lines are ignored in the example; production code
+would normally count or report them.
+
 .. literalinclude:: ../../../examples/log_time_report.cpp
    :language: cpp
    :linenos:
+
+What to notice
+--------------
+
+- ``Duration(line)`` parses each ISO 8601 duration string.
+- ``isValid()`` gates untrusted input without exceptions.
+- ``add`` mutates the running total, and ``hours`` / ``minutes`` /
+  ``seconds`` expose bubbled components rather than a raw millisecond
+  total.
 
 Build and run:
 

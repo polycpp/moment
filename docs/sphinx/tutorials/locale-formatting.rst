@@ -1,88 +1,79 @@
 Locale-aware formatting
 =======================
 
-**You'll build:** a date-formatting helper that speaks English by
-default, French on demand, and gracefully falls back to English if
-the requested locale isn't registered.
+**You'll build:** date-formatting helpers that use the generated
+Moment.js locale corpus, switch one value to French, and set a
+process-wide default for newly-created values.
 
-**You'll use:** :cpp:func:`defineLocale
-<polycpp::moment::defineLocale>`, :cpp:func:`globalLocale
-<polycpp::moment::globalLocale>`, and the
-:cpp:class:`LocaleData <polycpp::moment::LocaleData>` struct.
+**You'll use:** :cpp:func:`locales <polycpp::moment::locales>`,
+:cpp:func:`globalLocale <polycpp::moment::globalLocale>`,
+:cpp:func:`defineLocale <polycpp::moment::defineLocale>`, and
+:cpp:func:`Moment::locale <polycpp::moment::Moment::locale>`.
 
 Step 1 — confirm which locales exist
 ------------------------------------
 
-Only ``en`` is built in; everything else comes from your code:
+The generated locale corpus is registered by default:
 
 .. code-block:: cpp
 
    #include <polycpp/moment/locale.hpp>
+
    for (const auto& key : polycpp::moment::locales())
        std::cout << key << '\n';
+   // ar
    // en
+   // fr
+   // ...
 
-The fallback is permanent — even after :cpp:func:`defineLocale
-<polycpp::moment::defineLocale>` adds ``fr``, looking up ``fr_CA``
-via :cpp:func:`localeData <polycpp::moment::localeData>` returns
-``en`` until you register ``fr_CA`` explicitly.
+Unknown keys still fall back to English through
+:cpp:func:`localeData <polycpp::moment::localeData>`. Register a
+custom key with :cpp:func:`defineLocale
+<polycpp::moment::defineLocale>` when your application needs a
+locale variant that Moment.js does not ship.
 
-Step 2 — register a French locale
----------------------------------
+Step 2 — format one value in another locale
+-------------------------------------------
 
-Fill in the fields you care about; the rest fall back to the
-English defaults captured by the constructor:
+Use :cpp:func:`Moment::locale <polycpp::moment::Moment::locale>` for
+per-value output without touching the global default:
 
 .. code-block:: cpp
 
    namespace m = polycpp::moment;
 
-   m::LocaleData fr{};
-   fr.name = "fr";
-   fr.months = {
-       "janvier", "fevrier", "mars", "avril", "mai", "juin",
-       "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
-   };
-   fr.monthsShort = {
-       "janv.", "fevr.", "mars", "avr.", "mai", "juin",
-       "juil.", "aout", "sept.", "oct.", "nov.", "dec.",
-   };
-   fr.weekdays = {
-       "dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"
-   };
-   fr.week = {.dow = 1, .doy = 4};        // Monday-start, ISO week rule
-   fr.longDateFormat = {
-       "HH:mm",          // LT
-       "HH:mm:ss",       // LTS
-       "DD/MM/YYYY",     // L
-       "D MMMM YYYY",    // LL
-       "D MMMM YYYY HH:mm",
-       "dddd D MMMM YYYY HH:mm",
-   };
-   m::defineLocale("fr", fr);
+   auto bastille = m::utcFromDate(2026, 6, 14);  // 14 Jul 2026
+   bastille.locale("fr");
 
-Step 3 — switch locales temporarily
------------------------------------
+   std::cout << bastille.format("LL") << '\n';     // 14 juillet 2026
 
-:cpp:func:`globalLocale <polycpp::moment::globalLocale>` returns the
-*previous* key, so you can save and restore it:
+The setter leaves the current key unchanged when the requested
+locale is not registered.
+
+Step 3 — set the default for new values
+---------------------------------------
+
+:cpp:func:`globalLocale <polycpp::moment::globalLocale>` controls
+the locale captured by moments and durations created after the
+switch:
 
 .. code-block:: cpp
 
-   std::string saveAndFormat(const m::Moment& when, const std::string& key) {
-       const std::string prev = m::globalLocale(key);
-       const std::string s = when.format("LL");
-       m::globalLocale(prev);                 // restore for subsequent callers
-       return s;
-   }
+   namespace m = polycpp::moment;
 
-   auto bastille = m::utcFromDate(2026, 6, 14);  // 14 Jul 2026
-   std::cout << saveAndFormat(bastille, "en") << '\n';  // July 14, 2026
-   std::cout << saveAndFormat(bastille, "fr") << '\n';  // 14 juillet 2026
+   const std::string previous = m::globalLocale("fr");
 
-If the requested key isn't registered, :cpp:func:`globalLocale
-<polycpp::moment::globalLocale>` leaves the global unchanged and
-returns its current value — perfect for graceful degradation.
+   auto when = m::utcFromDate(2026, 6, 14);
+   auto wait = m::duration(1, "day");
+
+   std::cout << when.format("LL") << '\n';       // 14 juillet 2026
+   std::cout << wait.humanize() << '\n';         // un jour
+
+   m::globalLocale(previous);
+
+Existing moments keep their own locale key. Use
+:cpp:func:`Moment::locale <polycpp::moment::Moment::locale>` when
+you need to switch an already-created value.
 
 Step 4 — tweak relative-time thresholds
 ---------------------------------------
@@ -92,25 +83,55 @@ ago"``) are global, not per-locale:
 
 .. code-block:: cpp
 
-   m::relativeTimeThreshold("s", 60);     // treat <60s as "seconds ago"
+   m::relativeTimeThreshold("s", 60);     // keep <60s below the minute boundary
    m::relativeTimeThreshold("m", 90);     // extend the minute boundary
 
-Both thresholds survive across
-:cpp:func:`globalLocale <polycpp::moment::globalLocale>` switches;
-set them once at startup.
+Set these once at startup if your application wants non-default
+humanize boundaries. For one-off duration formatting, pass a
+``RelativeTimeThresholds`` value to ``Duration::humanize`` instead.
+
+Step 5 — list localized month and weekday names
+-----------------------------------------------
+
+Use the standalone listers when building dropdowns, report headers, or
+calendar grids. They read from the active global locale, matching
+Moment.js's ``moment.months()`` and ``moment.weekdays()`` helpers:
+
+.. code-block:: cpp
+
+   m::globalLocale("fr");
+
+   for (const auto& label : m::monthsShort()) {
+       std::cout << label << ' ';
+   }
+   std::cout << '\n';
+
+   for (const auto& label : m::weekdaysMin()) {
+       std::cout << label << ' ';
+   }
+   std::cout << '\n';
+
+Pass an index when you need a single label:
+
+.. code-block:: cpp
+
+   std::cout << m::months(6) << '\n';       // juillet
+   std::cout << m::weekdaysShort(1) << '\n';
 
 What you learned
 ----------------
 
-- Only ``en`` ships; every other locale comes from your
-  :cpp:func:`defineLocale <polycpp::moment::defineLocale>` calls.
-- :cpp:func:`globalLocale <polycpp::moment::globalLocale>` returns
-  the *previous* key, which makes the save-and-restore pattern a
-  one-liner.
-- Unknown keys gracefully fall back to English without throwing —
-  safe for user-supplied values.
+- Generated Moment.js locales are available by default and appear in
+  :cpp:func:`locales <polycpp::moment::locales>`.
+- :cpp:func:`Moment::locale <polycpp::moment::Moment::locale>` is the
+  right tool for one formatted value.
+- :cpp:func:`globalLocale <polycpp::moment::globalLocale>` sets the
+  default for newly-created moments and durations.
+- Standalone listers such as :cpp:func:`months
+  <polycpp::moment::months>` and :cpp:func:`weekdaysMin
+  <polycpp::moment::weekdaysMin>` are useful for UI and report labels.
 - Relative-time thresholds are global and independent of the active
-  locale; set them at startup once.
+  locale.
 
 Next: :doc:`durations-and-diff` pairs :cpp:class:`Duration
 <polycpp::moment::Duration>` with :cpp:func:`Moment::diff

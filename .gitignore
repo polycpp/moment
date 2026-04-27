@@ -6,6 +6,7 @@ cmake-build-*/
 
 # Working documents (never committed)
 /internal/
+.tmp/
 
 # IDE files
 .vscode/
@@ -32,9 +33,13 @@ compile_commands.json
 # Testing artifacts
 Testing/
 CTestTestfile.cmake
+*.log
 
 # Package managers / FetchContent
 _deps/
+
+# Python generated files
+__pycache__/
 
 # AI agent files
 CLAUDE.md

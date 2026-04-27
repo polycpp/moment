@@ -67,6 +67,21 @@ TEST(ParseTest, ISOWithPositiveOffset) {
     EXPECT_EQ(utcView.second(), 45);
 }
 
+TEST(ParseTest, CreationDataAndParsingFlagsForISO) {
+    auto m = parse("2024-03-15T14:30:45Z");
+    ASSERT_TRUE(m.isValid());
+
+    auto flags = m.parsingFlags();
+    EXPECT_TRUE(flags.iso);
+    EXPECT_EQ(flags.overflow, -1);
+    ASSERT_GE(flags.parsedDateParts.size(), 6U);
+
+    auto data = m.creationData();
+    EXPECT_EQ(data.input, "2024-03-15T14:30:45Z");
+    EXPECT_TRUE(data.isUTC);
+    EXPECT_FALSE(data.strict);
+}
+
 TEST(ParseTest, ISOWithNegativeOffset) {
     auto m = parse("2024-03-15T14:30:45-05:00");
     ASSERT_TRUE(m.isValid());
@@ -145,6 +160,45 @@ TEST(ParseTest, RFC2822NoDayOfWeek) {
     EXPECT_EQ(utcView.date(), 15);
 }
 
+TEST(ParseTest, ExplicitIsoAndRfcSentinelFormats) {
+    auto iso = parse("2024-03-15T14:30:45Z", ISO_8601, true);
+    ASSERT_TRUE(iso.isValid());
+    EXPECT_TRUE(iso.parsingFlags().iso);
+    EXPECT_EQ(iso.creationData().format, ISO_8601);
+    iso.utc();
+    EXPECT_EQ(iso.format("YYYY-MM-DDTHH:mm:ss[Z]"), "2024-03-15T14:30:45Z");
+
+    auto rfc = parse("Fri, 15 Mar 2024 14:30:45 +0000", RFC_2822, true);
+    ASSERT_TRUE(rfc.isValid());
+    EXPECT_TRUE(rfc.parsingFlags().rfc2822);
+    EXPECT_EQ(rfc.creationData().format, RFC_2822);
+
+    EXPECT_FALSE(parse("Fri, 15 Mar 2024 14:30:45 +0000", ISO_8601, true).isValid());
+    EXPECT_FALSE(parse("2024-03-15T14:30:45Z", RFC_2822, true).isValid());
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// polycpp::Date fallback parsing
+// ═════════════════════════════════════════════════════════════════════
+
+TEST(ParseTest, PolycppDateToStringFallback) {
+    auto m = parse("Tue Nov 14 2023 22:13:20 GMT+0000 (UTC)");
+    ASSERT_TRUE(m.isValid());
+    EXPECT_EQ(m.valueOf(), 1700000000000LL);
+}
+
+TEST(ParseTest, PolycppDateToStringFallbackWithOffset) {
+    auto m = parse("Tue Nov 14 2023 22:13:20 GMT+0530");
+    ASSERT_TRUE(m.isValid());
+    EXPECT_EQ(m.valueOf(), 1699980200000LL);
+}
+
+TEST(ParseTest, PolycppDateFallbackRejectsImplementationSpecificInputs) {
+    EXPECT_FALSE(parse("March 5 2024").isValid());
+    EXPECT_FALSE(parse("2024/03/15").isValid());
+    EXPECT_FALSE(parse("2024-1-1").isValid());
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // Custom format parsing
 // ═════════════════════════════════════════════════════════════════════
@@ -179,6 +233,62 @@ TEST(ParseTest, CustomFormatYYYYMMDD) {
     EXPECT_EQ(m.date(), 15);
 }
 
+TEST(ParseTest, Html5FormatConstants) {
+    auto datetime = parse("2024-03-15T14:30", HTML5_FMT::DATETIME_LOCAL, true);
+    ASSERT_TRUE(datetime.isValid());
+    EXPECT_EQ(datetime.year(), 2024);
+    EXPECT_EQ(datetime.month(), 2);
+    EXPECT_EQ(datetime.date(), 15);
+    EXPECT_EQ(datetime.hour(), 14);
+    EXPECT_EQ(datetime.minute(), 30);
+
+    auto datetimeMs = parse("2024-03-15T14:30:45.123", HTML5_FMT::DATETIME_LOCAL_MS, true);
+    ASSERT_TRUE(datetimeMs.isValid());
+    EXPECT_EQ(datetimeMs.second(), 45);
+    EXPECT_EQ(datetimeMs.millisecond(), 123);
+
+    auto datetimeSeconds = parse("2024-03-15T14:30:45", HTML5_FMT::DATETIME_LOCAL_SECONDS, true);
+    ASSERT_TRUE(datetimeSeconds.isValid());
+    EXPECT_EQ(datetimeSeconds.second(), 45);
+
+    auto date = parse("2024-03-15", HTML5_FMT::DATE, true);
+    ASSERT_TRUE(date.isValid());
+    EXPECT_EQ(date.year(), 2024);
+    EXPECT_EQ(date.month(), 2);
+    EXPECT_EQ(date.date(), 15);
+
+    auto time = parse("14:30", HTML5_FMT::TIME, true);
+    ASSERT_TRUE(time.isValid());
+    EXPECT_EQ(time.hour(), 14);
+    EXPECT_EQ(time.minute(), 30);
+
+    auto timeMs = parse("14:30:45.123", HTML5_FMT::TIME_MS, true);
+    ASSERT_TRUE(timeMs.isValid());
+    EXPECT_EQ(timeMs.hour(), 14);
+    EXPECT_EQ(timeMs.minute(), 30);
+    EXPECT_EQ(timeMs.second(), 45);
+    EXPECT_EQ(timeMs.millisecond(), 123);
+
+    auto timeSeconds = parse("14:30:45", HTML5_FMT::TIME_SECONDS, true);
+    ASSERT_TRUE(timeSeconds.isValid());
+    EXPECT_EQ(timeSeconds.hour(), 14);
+    EXPECT_EQ(timeSeconds.minute(), 30);
+    EXPECT_EQ(timeSeconds.second(), 45);
+
+    auto month = parse("2024-03", html5_fmt::MONTH, true);
+    ASSERT_TRUE(month.isValid());
+    EXPECT_EQ(month.year(), 2024);
+    EXPECT_EQ(month.month(), 2);
+    EXPECT_EQ(month.date(), 1);
+
+    auto week = parse("2024-W11", HTML5_FMT::WEEK, true);
+    ASSERT_TRUE(week.isValid());
+    EXPECT_EQ(week.format(HTML5_FMT::DATE), "2024-03-11");
+    EXPECT_EQ(week.isoWeekYear(), 2024);
+    EXPECT_EQ(week.isoWeek(), 11);
+    EXPECT_EQ(week.isoWeekday(), 1);
+}
+
 TEST(ParseTest, CustomFormatWithMonthName) {
     auto m = parse("March 15, 2024", "MMMM D, YYYY");
     ASSERT_TRUE(m.isValid());
@@ -193,6 +303,24 @@ TEST(ParseTest, CustomFormatShortMonthName) {
     EXPECT_EQ(m.year(), 2024);
     EXPECT_EQ(m.month(), 2);
     EXPECT_EQ(m.date(), 15);
+}
+
+TEST(ParseTest, ParsesEnglishEraYear) {
+    auto m = parse("AD 2024-04-27", "N y-MM-DD", true);
+    ASSERT_TRUE(m.isValid());
+    EXPECT_EQ(m.year(), 2024);
+    EXPECT_EQ(m.month(), 3);
+    EXPECT_EQ(m.date(), 27);
+}
+
+TEST(ParseTest, ParsesEnglishBeforeChristEraYear) {
+    auto m = parse("BC 1-12-31", "N y-MM-DD", true);
+    ASSERT_TRUE(m.isValid());
+    EXPECT_EQ(m.year(), 0);
+    EXPECT_EQ(m.month(), 11);
+    EXPECT_EQ(m.date(), 31);
+    EXPECT_EQ(m.eraAbbr(), "BC");
+    EXPECT_EQ(m.eraYear(), 1);
 }
 
 TEST(ParseTest, CustomFormatFullDateTime) {
@@ -215,13 +343,59 @@ TEST(ParseTest, CustomFormatTwoDigitYear) {
 TEST(ParseTest, CustomFormatTwoDigitYear68) {
     auto m = parse("15/03/68", "DD/MM/YY");
     ASSERT_TRUE(m.isValid());
-    EXPECT_EQ(m.year(), 1968);  // 68-99 -> 1968-1999 (moment.js convention)
+    EXPECT_EQ(m.year(), 2068);  // 00-68 -> 2000-2068 (moment.js convention)
 }
 
 TEST(ParseTest, CustomFormatTwoDigitYear69) {
     auto m = parse("15/03/69", "DD/MM/YY");
     ASSERT_TRUE(m.isValid());
     EXPECT_EQ(m.year(), 1969);
+}
+
+TEST(ParseTest, ParseTwoDigitYearHelperUsesUpstreamPivot) {
+    EXPECT_EQ(parseTwoDigitYear("00"), 2000);
+    EXPECT_EQ(parseTwoDigitYear("68"), 2068);
+    EXPECT_EQ(parseTwoDigitYear("69"), 1969);
+}
+
+TEST(ParseTest, ParsesDayOfYearAndExpandedFormatTokens) {
+    auto doy = parse("2024-075", "YYYY-DDD", true);
+    ASSERT_TRUE(doy.isValid());
+    EXPECT_EQ(doy.format("YYYY-MM-DD"), "2024-03-15");
+
+    auto combined = parse("2024-03-15 143045.1234", "YYYY-MM-DD Hmmss.SSSS", true);
+    ASSERT_TRUE(combined.isValid());
+    EXPECT_EQ(combined.format("HH:mm:ss.SSS"), "14:30:45.123");
+
+    auto expanded = parse("+002024-03-15", "YYYYYY-MM-DD", true);
+    ASSERT_TRUE(expanded.isValid());
+    EXPECT_EQ(expanded.format("YYYY-MM-DD"), "2024-03-15");
+}
+
+TEST(ParseTest, ParsesLocaleAndIsoWeekFormats) {
+    auto localeWeek = parse("2024-w11-5", "gggg-[w]ww-e", true);
+    ASSERT_TRUE(localeWeek.isValid());
+    EXPECT_EQ(localeWeek.format("YYYY-MM-DD"), "2024-03-15");
+    EXPECT_EQ(localeWeek.weekYear(), 2024);
+    EXPECT_EQ(localeWeek.week(), 11);
+    EXPECT_EQ(localeWeek.weekday(), 5);
+
+    auto isoWeek = parse("2024-W11-5", "GGGG-[W]WW-E", true);
+    ASSERT_TRUE(isoWeek.isValid());
+    EXPECT_EQ(isoWeek.format("YYYY-MM-DD"), "2024-03-15");
+    EXPECT_EQ(isoWeek.isoWeekYear(), 2024);
+    EXPECT_EQ(isoWeek.isoWeek(), 11);
+    EXPECT_EQ(isoWeek.isoWeekday(), 5);
+}
+
+TEST(ParseTest, WeekdayMismatchInvalidatesStrictParse) {
+    auto bad = parse("Thursday, 2024-03-15", "dddd, YYYY-MM-DD", true);
+    EXPECT_FALSE(bad.isValid());
+    EXPECT_TRUE(bad.parsingFlags().weekdayMismatch);
+
+    auto good = parse("Friday, 2024-03-15", "dddd, YYYY-MM-DD", true);
+    ASSERT_TRUE(good.isValid());
+    EXPECT_FALSE(good.parsingFlags().weekdayMismatch);
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -233,9 +407,30 @@ TEST(ParseTest, StrictModeValid) {
     ASSERT_TRUE(m.isValid());
 }
 
+TEST(ParseTest, ParsingFlagsCaptureDateOverflow) {
+    auto m = parse("2024-02-31", "YYYY-MM-DD", true);
+    EXPECT_FALSE(m.isValid());
+    EXPECT_EQ(m.invalidAt(), 2);
+
+    auto flags = m.parsingFlags();
+    EXPECT_EQ(flags.overflow, 2);
+    ASSERT_EQ(flags.parsedDateParts.size(), 3U);
+    EXPECT_EQ(flags.parsedDateParts[0], 2024);
+    EXPECT_EQ(flags.parsedDateParts[1], 1);
+    EXPECT_EQ(flags.parsedDateParts[2], 31);
+}
+
 TEST(ParseTest, StrictModeExtraChars) {
     auto m = parse("2024-03-15 extra", "YYYY-MM-DD", true);
     EXPECT_FALSE(m.isValid());
+
+    auto flags = m.parsingFlags();
+    EXPECT_EQ(flags.charsLeftOver, 6);
+    ASSERT_EQ(flags.unusedInput.size(), 1U);
+    EXPECT_EQ(flags.unusedInput[0], " extra");
+    EXPECT_EQ(m.creationData().input, "2024-03-15 extra");
+    EXPECT_EQ(m.creationData().format, "YYYY-MM-DD");
+    EXPECT_TRUE(m.creationData().strict);
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -329,6 +524,13 @@ TEST(ParseTest, UtcFromString) {
     EXPECT_EQ(m.hour(), 14);
 }
 
+TEST(ParseTest, UtcFromStringUsesPolycppDateFallback) {
+    auto m = utcFromString("Tue Nov 14 2023 22:13:20 GMT+0000 (UTC)");
+    ASSERT_TRUE(m.isValid());
+    EXPECT_TRUE(m.isUtc());
+    EXPECT_EQ(m.valueOf(), 1700000000000LL);
+}
+
 TEST(ParseTest, UtcFromMs) {
     auto m = utcFromMs(TS_KNOWN);
     ASSERT_TRUE(m.isValid());
@@ -359,6 +561,9 @@ TEST(ParseTest, ParseZonePreservesOffset) {
     auto m = parseZone("2024-03-15T14:30:45+05:30");
     ASSERT_TRUE(m.isValid());
     EXPECT_EQ(m.utcOffset(), 330); // +05:30 = 330 minutes
+    EXPECT_EQ(m.hour(), 14);
+    EXPECT_EQ(m.minute(), 30);
+    EXPECT_EQ(m.format("YYYY-MM-DD[T]HH:mm:ssZ"), "2024-03-15T14:30:45+05:30");
 }
 
 TEST(ParseTest, ParseZoneUtc) {
@@ -374,6 +579,47 @@ TEST(ParseTest, ParseZoneNegativeOffset) {
     EXPECT_EQ(m.utcOffset(), -300); // -05:00 = -300 minutes
 }
 
+TEST(ParseTest, ParseZoneUsesPolycppDateFallbackOffset) {
+    auto m = parseZone("Tue Nov 14 2023 22:13:20 GMT+0530");
+    ASSERT_TRUE(m.isValid());
+    EXPECT_EQ(m.utcOffset(), 330);
+    EXPECT_EQ(m.valueOf(), 1699980200000LL);
+}
+
+TEST(ParseTest, ParseZoneAssumesUtcWhenNoOffsetIsPresent) {
+    auto m = parseZone("2024-03-15T14:30:45");
+    ASSERT_TRUE(m.isValid());
+    EXPECT_TRUE(m.isUtc());
+    EXPECT_EQ(m.utcOffset(), 0);
+    EXPECT_EQ(m.format("YYYY-MM-DD[T]HH:mm:ssZ"), "2024-03-15T14:30:45+00:00");
+}
+
+TEST(ParseTest, InstanceParseZoneUsesCreationInputOffset) {
+    auto withOffset = parse("2024-03-15T14:30:45+05:30");
+    ASSERT_TRUE(withOffset.isValid());
+    withOffset.parseZone();
+    EXPECT_EQ(withOffset.utcOffset(), 330);
+    EXPECT_EQ(withOffset.format("YYYY-MM-DD[T]HH:mm:ssZ"), "2024-03-15T14:30:45+05:30");
+
+    auto withoutOffset = parse("2024-03-15T14:30:45");
+    ASSERT_TRUE(withoutOffset.isValid());
+    withoutOffset.parseZone();
+    EXPECT_TRUE(withoutOffset.isUtc());
+    EXPECT_EQ(withoutOffset.format("YYYY-MM-DD[T]HH:mm:ssZ"), "2024-03-15T14:30:45+00:00");
+}
+
+TEST(ParseTest, ParseZoneSupportsFormatAndSentinelInputs) {
+    auto formatted = parseZone("2024-03-15T14:30:45+05:30", "YYYY-MM-DDTHH:mm:ssZ");
+    ASSERT_TRUE(formatted.isValid());
+    EXPECT_EQ(formatted.utcOffset(), 330);
+    EXPECT_EQ(formatted.format("YYYY-MM-DD[T]HH:mm:ssZ"), "2024-03-15T14:30:45+05:30");
+
+    auto sentinel = parseZone("2024-03-15T14:30:45", ISO_8601);
+    ASSERT_TRUE(sentinel.isValid());
+    EXPECT_TRUE(sentinel.isUtc());
+    EXPECT_EQ(sentinel.creationData().format, ISO_8601);
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // Invalid input
 // ═════════════════════════════════════════════════════════════════════
@@ -381,11 +627,14 @@ TEST(ParseTest, ParseZoneNegativeOffset) {
 TEST(ParseTest, InvalidInput) {
     auto m = parse("not a date");
     EXPECT_FALSE(m.isValid());
+    EXPECT_EQ(m.creationData().input, "not a date");
+    EXPECT_EQ(m.inspect(), "moment.invalid(/* not a date */)");
 }
 
 TEST(ParseTest, EmptyInput) {
     auto m = parse("");
     EXPECT_FALSE(m.isValid());
+    EXPECT_TRUE(m.parsingFlags().nullInput);
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -395,6 +644,8 @@ TEST(ParseTest, EmptyInput) {
 TEST(ParseTest, InvalidFactory) {
     auto m = invalid();
     EXPECT_FALSE(m.isValid());
+    EXPECT_TRUE(m.parsingFlags().userInvalidated);
+    EXPECT_EQ(m.inspect(), "moment.invalid(/* NaN */)");
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -477,4 +728,17 @@ TEST(ParseTest, UtcFromFormat) {
     EXPECT_EQ(m.year(), 2024);
     EXPECT_EQ(m.month(), 2);
     EXPECT_EQ(m.date(), 15);
+}
+
+TEST(ParseTest, UtcFromFormatHonorsParsedOffsetsAndSentinels) {
+    auto withOffset = utcFromFormat("2024-03-15T14:30:45+05:30", "YYYY-MM-DDTHH:mm:ssZ");
+    ASSERT_TRUE(withOffset.isValid());
+    EXPECT_TRUE(withOffset.isUtc());
+    EXPECT_EQ(withOffset.format("YYYY-MM-DD[T]HH:mm:ss[Z]"), "2024-03-15T09:00:45Z");
+
+    auto iso = utcFromFormat("2024-03-15T14:30:45+05:30", ISO_8601);
+    ASSERT_TRUE(iso.isValid());
+    EXPECT_TRUE(iso.isUtc());
+    EXPECT_EQ(iso.creationData().format, ISO_8601);
+    EXPECT_EQ(iso.format("YYYY-MM-DD[T]HH:mm:ss[Z]"), "2024-03-15T09:00:45Z");
 }

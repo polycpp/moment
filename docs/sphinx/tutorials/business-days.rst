@@ -15,6 +15,10 @@ list of holidays.
 **Prerequisites:** a working ``polycpp::moment`` install — see
 :doc:`../getting-started/installation`.
 
+Moment component factories use JavaScript and Moment.js month
+numbering: January is ``0`` and December is ``11``. The examples below
+use ``3`` for April.
+
 Step 1 — write the basic weekday loop
 -------------------------------------
 

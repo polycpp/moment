@@ -5,7 +5,7 @@
  * Contains all get/set, manipulation, and UTC/local mode logic.
  * Uses polycpp::Date for timestamp <-> component decomposition.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 #pragma once
 
@@ -204,19 +204,71 @@ inline int parseOffsetString(const std::string& s) {
     return sign * (hours * 60 + minutes);
 }
 
+inline const std::vector<EraSpec>& erasForLocale(const LocaleData& locale) {
+    if (!locale.eras.empty()) {
+        return locale.eras;
+    }
+
+    const auto& english = polycpp::moment::localeData("en");
+    if (!english.eras.empty()) {
+        return english.eras;
+    }
+
+    static const std::vector<EraSpec> empty;
+    return empty;
+}
+
+inline int utcYearFromTimestamp(int64_t timestamp_ms) {
+    polycpp::Date d(static_cast<double>(timestamp_ms));
+    return static_cast<int>(d.getUTCFullYear());
+}
+
+inline int convertEraYearToGregorian(const EraSpec& era, int eraYear, bool hasEraYear) {
+    const int sinceYear = utcYearFromTimestamp(era.since);
+    if (!hasEraYear) {
+        return sinceYear;
+    }
+
+    const int direction = era.since <= era.until ? 1 : -1;
+    return sinceYear + (eraYear - era.offset) * direction;
+}
+
+inline const EraSpec* eraForMoment(const Moment& moment, const LocaleData& locale) {
+    const auto& eras = erasForLocale(locale);
+    if (eras.empty()) {
+        return nullptr;
+    }
+
+    Moment dayStart = moment.clone().startOf("day");
+    const int64_t value = dayStart.valueOf();
+
+    for (const auto& era : eras) {
+        if ((era.since <= value && value <= era.until) ||
+            (era.until <= value && value <= era.since)) {
+            return &era;
+        }
+    }
+
+    return nullptr;
+}
+
 } // namespace detail
 
 // ── Constructors ─────────────────────────────────────────────────────
 
-inline Moment::Moment() {
+inline Moment::Moment() : locale_key_(globalLocale()) {
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()
     ).count();
     timestamp_ms_ = ms;
+    creation_data_.locale = locale_key_;
 }
 
-inline Moment::Moment(int64_t timestamp_ms) : timestamp_ms_(timestamp_ms) {}
+inline Moment::Moment(int64_t timestamp_ms)
+    : timestamp_ms_(timestamp_ms), locale_key_(globalLocale()) {
+    creation_data_.locale = locale_key_;
+}
 
 // ── Component decomposition ──────────────────────────────────────────
 
@@ -351,13 +403,13 @@ inline Moment& Moment::day(int value) {
 // ── Get/Set: Weekday (locale-aware) ──────────────────────────────────
 
 inline int Moment::weekday() const {
-    const auto& loc = localeData(locale_key_);
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     int dow = loc.week.dow;
     return (day() + 7 - dow) % 7;
 }
 
 inline Moment& Moment::weekday(int value) {
-    const auto& loc = localeData(locale_key_);
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     int dow = loc.week.dow;
     // Convert locale weekday back to absolute day-of-week
     int targetDow = (value + dow) % 7;
@@ -396,7 +448,7 @@ inline Moment& Moment::dayOfYear(int value) {
 // ── Get/Set: Week (locale-aware) ─────────────────────────────────────
 
 inline int Moment::week() const {
-    const auto& loc = localeData(locale_key_);
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     int doy = dayOfYear();
     int yr = year();
     auto result = detail::weekOfYear(yr, doy, loc.week.dow, loc.week.doy);
@@ -429,7 +481,7 @@ inline Moment& Moment::isoWeek(int value) {
 // ── Get/Set: Week Year (locale-aware) ────────────────────────────────
 
 inline int Moment::weekYear() const {
-    const auto& loc = localeData(locale_key_);
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     int doy = dayOfYear();
     int yr = year();
     auto result = detail::weekOfYear(yr, doy, loc.week.dow, loc.week.doy);
@@ -437,7 +489,7 @@ inline int Moment::weekYear() const {
 }
 
 inline Moment& Moment::weekYear(int value) {
-    const auto& loc = localeData(locale_key_);
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     int currentWeekYear = weekYear();
     int w = week();
     int wd = weekday() + loc.week.dow; // absolute weekday
@@ -647,12 +699,21 @@ inline int Moment::daysInMonth() const {
 }
 
 inline int Moment::weeksInYear() const {
-    const auto& loc = localeData(locale_key_);
+    const auto& loc = polycpp::moment::localeData(locale_key_);
     return detail::weeksInYear(year(), loc.week.dow, loc.week.doy);
 }
 
 inline int Moment::isoWeeksInYear() const {
     return detail::weeksInYear(year(), 1, 4);
+}
+
+inline int Moment::weeksInWeekYear() const {
+    const auto& loc = polycpp::moment::localeData(locale_key_);
+    return detail::weeksInYear(weekYear(), loc.week.dow, loc.week.doy);
+}
+
+inline int Moment::isoWeeksInISOWeekYear() const {
+    return detail::weeksInYear(isoWeekYear(), 1, 4);
 }
 
 // ── Manipulation: add ────────────────────────────────────────────────
@@ -938,6 +999,72 @@ inline Moment& Moment::local(bool keepLocalTime) {
     return *this;
 }
 
+// ── Locale ──────────────────────────────────────────────────────────
+
+inline std::string Moment::locale() const {
+    return locale_key_;
+}
+
+inline Moment& Moment::locale(const std::string& key) {
+    if (key.empty()) {
+        locale_key_ = globalLocale();
+        return *this;
+    }
+
+    const auto& loc = polycpp::moment::localeData(key);
+    if (loc.name == key) {
+        locale_key_ = key;
+    }
+    return *this;
+}
+
+inline const LocaleData& Moment::localeData() const {
+    return polycpp::moment::localeData(locale_key_);
+}
+
+// ── Era ─────────────────────────────────────────────────────────────
+
+inline std::string Moment::eraName() const {
+    if (!isValid()) {
+        return "";
+    }
+    const auto& loc = polycpp::moment::localeData(locale_key_);
+    const EraSpec* era = detail::eraForMoment(*this, loc);
+    return era ? era->name : "";
+}
+
+inline std::string Moment::eraNarrow() const {
+    if (!isValid()) {
+        return "";
+    }
+    const auto& loc = polycpp::moment::localeData(locale_key_);
+    const EraSpec* era = detail::eraForMoment(*this, loc);
+    return era ? era->narrow : "";
+}
+
+inline std::string Moment::eraAbbr() const {
+    if (!isValid()) {
+        return "";
+    }
+    const auto& loc = polycpp::moment::localeData(locale_key_);
+    const EraSpec* era = detail::eraForMoment(*this, loc);
+    return era ? era->abbr : "";
+}
+
+inline int Moment::eraYear() const {
+    if (!isValid()) {
+        return 0;
+    }
+    const auto& loc = polycpp::moment::localeData(locale_key_);
+    const EraSpec* era = detail::eraForMoment(*this, loc);
+    if (!era) {
+        return year();
+    }
+
+    const int direction = era->since <= era->until ? 1 : -1;
+    return (year() - detail::utcYearFromTimestamp(era->since)) * direction + era->offset;
+}
+
 // ── Display / Query ──────────────────────────────────────────────────
 
 inline int64_t Moment::valueOf() const { return timestamp_ms_; }
@@ -952,12 +1079,32 @@ inline bool Moment::isUtc() const {
     return is_utc_ && utc_offset_minutes_ == 0;
 }
 
+inline bool Moment::isUTC() const {
+    return isUtc();
+}
+
 inline bool Moment::isLocal() const {
     return !is_utc_ && !has_fixed_offset_;
 }
 
 inline bool Moment::isUtcOffset() const {
     return is_utc_ || has_fixed_offset_;
+}
+
+inline bool Moment::hasAlignedHourOffset() const {
+    return isValid() && (utcOffset() % 60) == 0;
+}
+
+inline bool Moment::hasAlignedHourOffset(const Moment& other) const {
+    return isValid() && other.isValid() && ((utcOffset() - other.utcOffset()) % 60) == 0;
+}
+
+inline std::string Moment::zoneAbbr() const {
+    return isUtcOffset() ? "UTC" : "";
+}
+
+inline std::string Moment::zoneName() const {
+    return isUtcOffset() ? "Coordinated Universal Time" : "";
 }
 
 inline Moment Moment::clone() const { return *this; }
@@ -1098,19 +1245,20 @@ inline const RelativeTimeValue& lookupRelativeTimeKey(const RelativeTimeFormats&
 /// @return The formatted relative time string.
 inline std::string computeRelativeTime(int64_t ms_duration, bool withoutSuffix,
                                         const std::string& locale_key) {
-    const auto& loc = localeData(locale_key);
+    const auto& loc = polycpp::moment::localeData(locale_key);
     const auto& rt = loc.relativeTime;
 
     bool isFuture = ms_duration > 0;
     int64_t abs_ms = std::abs(ms_duration);
 
-    // Compute rounded values in each unit
-    int seconds = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 1000.0));
-    int minutes = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 60000.0));
-    int hours   = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 3600000.0));
-    int days    = static_cast<int>(polycpp::Math::round(static_cast<double>(abs_ms) / 86400000.0));
-    int months  = static_cast<int>(polycpp::Math::round(static_cast<double>(days) / 30.4375));
-    int years   = static_cast<int>(polycpp::Math::round(static_cast<double>(months) / 12.0));
+    // Compute rounded values in each unit.
+    auto roundFn = relativeTimeRounding();
+    int seconds = static_cast<int>(roundFn(static_cast<double>(abs_ms) / 1000.0));
+    int minutes = static_cast<int>(roundFn(static_cast<double>(abs_ms) / 60000.0));
+    int hours   = static_cast<int>(roundFn(static_cast<double>(abs_ms) / 3600000.0));
+    int days    = static_cast<int>(roundFn(static_cast<double>(abs_ms) / 86400000.0));
+    int months  = static_cast<int>(roundFn(static_cast<double>(days) / 30.4375));
+    int years   = static_cast<int>(roundFn(static_cast<double>(months) / 12.0));
 
     // Look up thresholds
     double th_ss = relativeTimeThreshold("ss");
@@ -1161,7 +1309,7 @@ inline std::string computeRelativeTime(int64_t ms_duration, bool withoutSuffix,
         }
     }
 
-    return output;
+    return loc.postformat ? loc.postformat(output) : output;
 }
 
 } // namespace detail
@@ -1170,7 +1318,7 @@ inline std::string computeRelativeTime(int64_t ms_duration, bool withoutSuffix,
 
 inline std::string Moment::from(const Moment& other, bool withoutSuffix) const {
     if (!isValid() || !other.isValid()) {
-        return localeData(locale_key_).invalidDate;
+        return polycpp::moment::localeData(locale_key_).invalidDate;
     }
     // ms_duration: positive if this is in the future relative to other
     int64_t ms_duration = timestamp_ms_ - other.timestamp_ms_;
@@ -1183,7 +1331,7 @@ inline std::string Moment::fromNow(bool withoutSuffix) const {
 
 inline std::string Moment::to(const Moment& other, bool withoutSuffix) const {
     if (!isValid() || !other.isValid()) {
-        return localeData(locale_key_).invalidDate;
+        return polycpp::moment::localeData(locale_key_).invalidDate;
     }
     // Reversed direction from "from"
     int64_t ms_duration = other.timestamp_ms_ - timestamp_ms_;
@@ -1200,41 +1348,35 @@ inline std::string Moment::calendar() const {
     return calendar(Moment());
 }
 
-inline std::string Moment::calendar(const Moment& reference) const {
-    if (!isValid()) {
-        return localeData(locale_key_).invalidDate;
-    }
-
-    // Compute diff in days from start-of-day of reference
-    Moment sod = reference.clone();
-    // Clone to local/utc matching this moment's mode for consistent comparison
-    if (is_utc_) {
-        sod.utc();
-    }
-    sod.startOf("day");
-    double dayDiff = diff(sod, "day", true);
-
-    std::string calKey;
+inline std::string calendarFormat(const Moment& moment, const Moment& reference) {
+    const double dayDiff = moment.diff(reference, "day", true);
     if (dayDiff < -6) {
-        calKey = "sameElse";
-    } else if (dayDiff < -1) {
-        calKey = "lastWeek";
-    } else if (dayDiff < 0) {
-        calKey = "lastDay";
-    } else if (dayDiff < 1) {
-        calKey = "sameDay";
-    } else if (dayDiff < 2) {
-        calKey = "nextDay";
-    } else if (dayDiff < 7) {
-        calKey = "nextWeek";
-    } else {
-        calKey = "sameElse";
+        return "sameElse";
     }
+    if (dayDiff < -1) {
+        return "lastWeek";
+    }
+    if (dayDiff < 0) {
+        return "lastDay";
+    }
+    if (dayDiff < 1) {
+        return "sameDay";
+    }
+    if (dayDiff < 2) {
+        return "nextDay";
+    }
+    if (dayDiff < 7) {
+        return "nextWeek";
+    }
+    return "sameElse";
+}
 
-    const auto& loc = localeData(locale_key_);
-    const auto& cal = loc.calendar;
+namespace detail {
 
-    // Get the CalendarValue for this key
+inline std::string formatCalendarValue(const Moment& moment,
+                                       const Moment& reference,
+                                       const CalendarFormats& cal,
+                                       const std::string& calKey) {
     const CalendarValue* cv = nullptr;
     if (calKey == "sameDay")  cv = &cal.sameDay;
     else if (calKey == "nextDay")  cv = &cal.nextDay;
@@ -1247,10 +1389,38 @@ inline std::string Moment::calendar(const Moment& reference) const {
     if (std::holds_alternative<std::string>(*cv)) {
         fmtStr = std::get<std::string>(*cv);
     } else {
-        fmtStr = std::get<CalendarFn>(*cv)();
+        fmtStr = std::get<CalendarFn>(*cv)(moment, reference);
     }
 
-    return format(fmtStr);
+    return moment.format(fmtStr);
+}
+
+} // namespace detail
+
+inline std::string Moment::calendar(const Moment& reference) const {
+    const auto& loc = polycpp::moment::localeData(locale_key_);
+    return calendar(reference, loc.calendar);
+}
+
+inline std::string Moment::calendar(const CalendarFormats& formats) const {
+    return calendar(Moment(), formats);
+}
+
+inline std::string Moment::calendar(const Moment& reference, const CalendarFormats& formats) const {
+    if (!isValid()) {
+        return polycpp::moment::localeData(locale_key_).invalidDate;
+    }
+
+    // Compute diff in days from start-of-day of reference
+    Moment sod = reference.clone();
+    // Clone to local/utc matching this moment's mode for consistent comparison
+    if (is_utc_) {
+        sod.utc();
+    }
+    sod.startOf("day");
+    const std::string calKey = calendarFormat(*this, sod);
+
+    return detail::formatCalendarValue(*this, reference, formats, calKey);
 }
 
 // ── Display: toJSON, toString, toArray ───────────────────────────────
@@ -1292,6 +1462,30 @@ inline std::string Moment::toString() const {
     return std::string(buf);
 }
 
+inline polycpp::Date Moment::toDate() const {
+    if (!isValid()) {
+        return polycpp::Date(std::numeric_limits<double>::quiet_NaN());
+    }
+    return polycpp::Date(static_cast<double>(timestamp_ms_));
+}
+
+inline std::string Moment::inspect() const {
+    if (!isValid()) {
+        const std::string input = creation_data_.input.empty() ? "NaN" : creation_data_.input;
+        return "moment.invalid(/* " + input + " */)";
+    }
+
+    std::string func = "moment";
+    std::string zone;
+    if (!isLocal()) {
+        func = utcOffset() == 0 ? "moment.utc" : "moment.parseZone";
+        zone = "Z";
+    }
+
+    const std::string yearToken = (year() >= 0 && year() <= 9999) ? "YYYY" : "YYYYYY";
+    return format("[" + func + "(\"]" + yearToken + "-MM-DD[T]HH:mm:ss.SSS" + zone + "[\")]");
+}
+
 inline polycpp::JsonArray Moment::toArray() const {
     auto c = toComponents();
     return polycpp::JsonArray{c.year, c.month, c.day, c.hour, c.minute, c.second, c.ms};
@@ -1308,6 +1502,18 @@ inline polycpp::JsonObject Moment::toObject() const {
         {"seconds", c.second},
         {"milliseconds", c.ms}
     };
+}
+
+inline MomentParsingFlags Moment::parsingFlags() const {
+    return parsing_flags_;
+}
+
+inline int Moment::invalidAt() const {
+    return parsing_flags_.overflow;
+}
+
+inline MomentCreationData Moment::creationData() const {
+    return creation_data_;
 }
 
 // ── Query: isBefore / isAfter / isSame / isBetween ──────────────────

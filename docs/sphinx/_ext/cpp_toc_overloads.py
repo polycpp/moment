@@ -56,4 +56,4 @@ def setup(app):
     # Add :sort: option to doxygenclass (Breathe supports it internally
     # in SectionDefTypeSubRenderer but doesn't expose it on the directive)
     DoxygenClassDirective.option_spec["sort"] = directives.flag
-    return {"version": "0.3", "parallel_read_safe": True}
+    return {"version": "1.0.0", "parallel_read_safe": True}

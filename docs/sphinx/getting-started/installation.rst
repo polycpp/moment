@@ -2,8 +2,7 @@ Installation
 ============
 
 moment targets C++20 and builds with clang ≥ 14 or gcc ≥ 11. It depends
-only on the base `polycpp <https://github.com/enricohuang/polycpp>`_ library
-(and none).
+only on the base polycpp library and has no runtime package dependencies.
 
 CMake FetchContent (recommended)
 --------------------------------
@@ -36,17 +35,31 @@ CMake to use them instead of fetching from GitHub:
 .. code-block:: bash
 
    cmake -B build -G Ninja \
-       -DFETCHCONTENT_SOURCE_DIR_POLYCPP=/path/to/polycpp \
-       -DFETCHCONTENT_SOURCE_DIR_POLYCPP_MOMENT=/path/to/moment
+       -DPOLYCPP_SOURCE_DIR=<repo path>/../polycpp \
+       -DFETCHCONTENT_SOURCE_DIR_POLYCPP_MOMENT=<repo path>
 
-This is the path CI uses for the test suite — see ``tests/`` in the repo.
+Use the same pattern for local development, CI jobs that mount sibling
+checkouts, or package-manager builds that provide polycpp separately.
 
 Build options
 -------------
 
 ``POLYCPP_MOMENT_BUILD_TESTS``
     Build the GoogleTest suite. Defaults to ``ON`` for standalone builds and
-    ``OFF`` when consumed via FetchContent.
+    can be disabled by consumers.
+
+``POLYCPP_MOMENT_BUILD_EXAMPLES``
+    Build example programs under ``examples/``. Defaults to ``OFF``.
+
+``POLYCPP_MOMENT_ENABLE_ALL_LOCALES``
+    Compile and register the generated Moment.js locale corpus. Defaults to
+    ``ON`` when ``POLYCPP_MOMENT_LOCALES`` is empty; set to ``OFF`` for an
+    English/custom-locale-only build.
+
+``POLYCPP_MOMENT_LOCALES``
+    Comma or semicolon separated Moment.js locale keys to compile and
+    register, for example ``fr,ar,ja``. When this is non-empty it overrides
+    ``POLYCPP_MOMENT_ENABLE_ALL_LOCALES``.
 
 ``POLYCPP_IO``
     ``asio`` (default) or ``libuv`` — inherited from polycpp.

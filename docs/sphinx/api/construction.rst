@@ -21,6 +21,7 @@ Parse from string
 .. doxygenfunction:: polycpp::moment::parse(const std::string&, const std::string&)
 .. doxygenfunction:: polycpp::moment::parse(const std::string&, const std::string&, bool)
 .. doxygenfunction:: polycpp::moment::parse(const std::string&, const std::vector<std::string>&)
+.. doxygenfunction:: polycpp::moment::parseTwoDigitYear
 
 .. doxygenfunction:: polycpp::moment::utcFromString
 .. doxygenfunction:: polycpp::moment::utcFromFormat

@@ -9,3 +9,12 @@ when you need an independent copy.
 
 .. doxygenclass:: polycpp::moment::Moment
    :members:
+
+Diagnostics
+-----------
+
+.. doxygenstruct:: polycpp::moment::MomentParsingFlags
+   :members:
+
+.. doxygenstruct:: polycpp::moment::MomentCreationData
+   :members:

@@ -1,16 +1,16 @@
 # Third-Party Notices
 
-This project is a C++ port inspired by the following open-source project(s).
-
----
+This project is a C++ companion port inspired by the following open-source project.
 
 ## Moment.js
 
-- **URL:** https://github.com/moment/moment
-- **License:** MIT
-- **Usage:** API design, algorithm reference, and test case inspiration for this C++ port.
+- Upstream package: `moment`
+- Source: https://github.com/moment/moment
+- Upstream version basis: 2.30.1
+- License: MIT
+- Usage: API design, algorithm reference, locale data reference, and test case inspiration for this C++ port.
 
-```
+```text
 MIT License
 
 Copyright (c) JS Foundation and other contributors

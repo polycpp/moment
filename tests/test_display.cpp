@@ -214,6 +214,36 @@ TEST(DisplayTest, CalendarSameElse) {
     EXPECT_NE(result.find("01/01/2024"), std::string::npos);
 }
 
+TEST(DisplayTest, CalendarFormatKeys) {
+    auto reference = utcFromDate(2024, 2, 15, 12, 0, 0);
+    auto start = reference.clone().startOf("day");
+
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 7), start), "sameElse");
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 11), start), "lastWeek");
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 14), start), "lastDay");
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 15), start), "sameDay");
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 16), start), "nextDay");
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 18), start), "nextWeek");
+    EXPECT_EQ(calendarFormat(utcFromDate(2024, 2, 22), start), "sameElse");
+}
+
+TEST(DisplayTest, CalendarAcceptsExplicitFormatOverrides) {
+    CalendarFormats formats;
+    formats.sameDay = std::string("[same] HH:mm");
+    formats.nextDay = std::string("[next]");
+    formats.nextWeek = std::string("[next week]");
+    formats.lastDay = std::string("[last]");
+    formats.lastWeek = std::string("[last week]");
+    formats.sameElse = std::string("YYYY-MM-DD");
+
+    auto ref = utcFromDate(2024, 2, 15, 12, 0, 0);
+    auto same = utcFromDate(2024, 2, 15, 14, 30, 0);
+    auto far = utcFromDate(2024, 0, 1, 14, 30, 0);
+
+    EXPECT_EQ(same.calendar(ref, formats), "same 14:30");
+    EXPECT_EQ(far.calendar(ref, formats), "2024-01-01");
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // toJSON, toString, toArray, unix
 // ═════════════════════════════════════════════════════════════════════
@@ -241,6 +271,45 @@ TEST(DisplayTest, ToString) {
 TEST(DisplayTest, ToStringInvalid) {
     auto m = invalid();
     EXPECT_EQ(m.toString(), "Invalid date");
+}
+
+TEST(DisplayTest, ToDateReturnsDateCopy) {
+    auto m = utcFromDate(2024, 2, 15, 14, 30, 45, 123);
+    auto d = m.toDate();
+    EXPECT_TRUE(d.isValid());
+    EXPECT_DOUBLE_EQ(d.getTime(), static_cast<double>(m.valueOf()));
+
+    auto invalidDate = invalid().toDate();
+    EXPECT_FALSE(invalidDate.isValid());
+}
+
+TEST(DisplayTest, UpstreamTimezoneAndLocaleConvenienceMethods) {
+    auto halfHour = parseZone("2024-03-15T14:30:45+05:30");
+    ASSERT_TRUE(halfHour.isValid());
+    EXPECT_FALSE(halfHour.isUTC());
+    EXPECT_TRUE(halfHour.isUtcOffset());
+    EXPECT_FALSE(halfHour.hasAlignedHourOffset());
+    EXPECT_EQ(halfHour.zoneAbbr(), "UTC");
+    EXPECT_EQ(halfHour.zoneName(), "Coordinated Universal Time");
+    EXPECT_EQ(halfHour.localeData().name, "en");
+
+    auto fullHour = parseZone("2024-03-15T14:30:45+05:00");
+    ASSERT_TRUE(fullHour.isValid());
+    EXPECT_TRUE(fullHour.hasAlignedHourOffset());
+    EXPECT_TRUE(fullHour.hasAlignedHourOffset(utcFromDate(2024, 2, 15)));
+
+    auto m = utcFromDate(2024, 11, 31);
+    EXPECT_EQ(m.weeksInWeekYear(), m.weeksInYear());
+    EXPECT_EQ(m.isoWeeksInISOWeekYear(), m.isoWeeksInYear());
+}
+
+TEST(DisplayTest, InspectUsesMomentFactorySyntax) {
+    auto utc = utcFromDate(2024, 2, 15, 14, 30, 45, 123);
+    EXPECT_EQ(utc.inspect(), "moment.utc(\"2024-03-15T14:30:45.123+00:00\")");
+
+    auto zoned = parseZone("2024-03-15T14:30:45.123+05:30");
+    ASSERT_TRUE(zoned.isValid());
+    EXPECT_EQ(zoned.inspect(), "moment.parseZone(\"2024-03-15T14:30:45.123+05:30\")");
 }
 
 TEST(DisplayTest, ToArray) {

@@ -6,7 +6,7 @@
  * canonical Unit enum. The alias set mirrors src/lib/units/aliases.js in
  * the original Moment.js source.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 #pragma once
 

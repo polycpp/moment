@@ -6,18 +6,31 @@
  * base-config defaults into C++ LocaleData. Included by the aggregator
  * header so that the English locale is always available.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 #pragma once
 
 #include <polycpp/moment/locale.hpp>
 #include <polycpp/moment/detail/locale.hpp>
+#include <polycpp/core/date.hpp>
 #include <cctype>
+#include <cstdint>
+#include <limits>
 #include <string>
 
 namespace polycpp {
 namespace moment {
 namespace detail {
+
+inline int64_t englishEraUtcDateMs(int year, int month, int day) {
+    double ms = polycpp::Date::UTC(year, month, day);
+    if (year >= 0 && year <= 99) {
+        polycpp::Date d(ms);
+        d.setUTCFullYear(year);
+        ms = d.getTime();
+    }
+    return static_cast<int64_t>(ms);
+}
 
 /**
  * @brief Build the complete English LocaleData.
@@ -41,6 +54,8 @@ inline LocaleData buildEnglishLocale() {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     }};
+    en.monthsStandalone = en.months;
+    en.monthsShortStandalone = en.monthsShort;
 
     // ── Weekday names (0 = Sunday) ───────────────────────────────────
     en.weekdays = {{
@@ -53,6 +68,8 @@ inline LocaleData buildEnglishLocale() {
     en.weekdaysMin = {{
         "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"
     }};
+    en.weekdaysStandalone = en.weekdays;
+    en.weekdaysFormat = en.weekdays;
 
     // ── Long date formats ────────────────────────────────────────────
     en.longDateFormat.LT   = "h:mm A";
@@ -126,6 +143,26 @@ inline LocaleData buildEnglishLocale() {
     // ── Pre/post format (identity) ───────────────────────────────────
     en.preparse   = [](const std::string& s) -> std::string { return s; };
     en.postformat = [](const std::string& s) -> std::string { return s; };
+
+    // ── Eras ────────────────────────────────────────────────────────
+    en.eras = {
+        EraSpec{
+            englishEraUtcDateMs(1, 0, 1),
+            std::numeric_limits<int64_t>::max(),
+            1,
+            "Anno Domini",
+            "AD",
+            "AD"
+        },
+        EraSpec{
+            englishEraUtcDateMs(0, 11, 31),
+            std::numeric_limits<int64_t>::min(),
+            1,
+            "Before Christ",
+            "BC",
+            "BC"
+        },
+    };
 
     // ── Invalid date string ──────────────────────────────────────────
     en.invalidDate = "Invalid date";

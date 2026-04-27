@@ -41,20 +41,21 @@ Compile it with the same CMake wiring from :doc:`installation`:
    cmake --build build
    ./build/my_app
 
-Expected output (with the current time close to 23 Apr 2026):
+Representative output:
 
 .. code-block:: text
 
    kickoff : Monday, April 27, 2026 9:00 AM
-   review  : Mon, May 4 at 15:00  (in 11 days)
+   review  : Mon, May 4 at 15:00  (relative text depends on when you run it)
    gap     : 7 days
 
 What just happened
 ------------------
 
-1. :cpp:func:`polycpp::moment::parse` auto-detects ISO 8601 (and
-   RFC 2822 as a fallback). A timezone offset in the input is
-   honoured, so the result is in UTC mode here.
+1. :cpp:func:`polycpp::moment::parse` auto-detects ISO 8601, RFC
+   2822, and deterministic ``polycpp::Date`` fallback formats. A
+   timezone offset in the input is honoured, so the result is in UTC
+   mode here.
 
 2. :cpp:func:`clone() <polycpp::moment::Moment::clone>` is important:
    :cpp:class:`Moment <polycpp::moment::Moment>` mutates in place,
@@ -82,6 +83,7 @@ Next steps
 ----------
 
 - :doc:`../tutorials/index` — step-by-step walkthroughs of common tasks.
+- :doc:`../guides/choose-input-factory` — choose the right parser or factory.
 - :doc:`../guides/index` — short how-tos for specific problems.
 - :doc:`../api/index` — every public type, function, and option.
 - :doc:`../examples/index` — runnable programs you can drop into a sandbox.

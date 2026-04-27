@@ -7,7 +7,7 @@
  * modify in-place and return *this for chaining.
  *
  * @see https://momentjs.com/docs/#/durations/
- * @since 0.1.0
+ * @since 1.0.0
  */
 #pragma once
 
@@ -18,13 +18,16 @@
 namespace polycpp {
 namespace moment {
 
+struct LocaleData;
+struct RelativeTimeThresholds;
+
 /**
  * @brief Input struct for creating Duration from named components.
  *
  * All fields default to 0. Weeks are converted to days (* 7) during
  * construction.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 struct DurationInput {
     int years = 0;
@@ -45,7 +48,7 @@ struct DurationInput {
  * component fields (years_, months_, days_, hours_, minutes_, seconds_,
  * milliseconds_) for the component getters.
  *
- * @since 0.1.0
+ * @since 1.0.0
  */
 class Duration {
 public:
@@ -76,7 +79,7 @@ public:
      * Duration d(JsonObject{{"hours", 2}, {"minutes", 30}});
      * @endcode
      * @see https://momentjs.com/docs/#/durations/creating/
-     * @since 0.4.0
+     * @since 1.0.0
      */
     explicit Duration(const polycpp::JsonObject& obj);
 
@@ -109,6 +112,21 @@ public:
      */
     std::string humanize(bool withSuffix = false) const;
 
+    /**
+     * @brief Human-readable description with per-call threshold overrides.
+     * @param thresholds Relative-time threshold overrides for this call.
+     * @return A human-readable string like "a few seconds" or "2 hours".
+     */
+    std::string humanize(const RelativeTimeThresholds& thresholds) const;
+
+    /**
+     * @brief Human-readable description with suffix and per-call thresholds.
+     * @param withSuffix If true, wrap with "in ..." / "... ago".
+     * @param thresholds Relative-time threshold overrides for this call.
+     * @return A human-readable string like "in a minute".
+     */
+    std::string humanize(bool withSuffix, const RelativeTimeThresholds& thresholds) const;
+
     // -- Component getters (the bubbled component, not the total) --
 
     int years() const;
@@ -131,6 +149,7 @@ public:
     double asHours() const;
     double asDays() const;
     double asWeeks() const;
+    double asQuarters() const;
     double asMonths() const;
     double asYears() const;
 
@@ -145,11 +164,15 @@ public:
     /// @brief Alias for toISOString() (JSON serialization).
     std::string toJSON() const;
 
+    /// @brief Alias for toISOString(), matching Moment.js duration display.
+    std::string toString() const;
+
     /**
      * @brief Get the duration components as a JsonObject.
      * @return JsonObject with keys: years, months, days, hours, minutes, seconds, milliseconds.
-     * @see https://momentjs.com/docs/#/durations/as-object/
-     * @since 0.4.0
+     * @note This is a typed C++ convenience; upstream Moment.js durations do not expose toObject().
+     * @see https://momentjs.com/docs/#/durations/
+     * @since 1.0.0
      */
     polycpp::JsonObject toObject() const;
 
@@ -168,6 +191,9 @@ public:
 
     /// @brief Set the locale key for this duration.
     Duration& locale(const std::string& key);
+
+    /// @brief Get this duration's locale data.
+    const LocaleData& localeData() const;
 
 private:
     // Three-bucket storage (matching moment.js internals)
@@ -214,9 +240,11 @@ Duration duration(const DurationInput& input);
  * auto d = moment::duration(JsonObject{{"years", 1}, {"months", 6}});
  * @endcode
  * @see https://momentjs.com/docs/#/durations/creating/
- * @since 0.4.0
+ * @since 1.0.0
  */
 Duration duration(const polycpp::JsonObject& obj);
 
 } // namespace moment
 } // namespace polycpp
+
+#include <polycpp/moment/detail/duration.hpp>

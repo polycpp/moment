@@ -18,11 +18,13 @@ backward through the hierarchy of units:
    auto weekStart = now.clone().startOf("week");     // locale-aware Sunday or Monday
    auto monthEnd  = now.clone().endOf("month");      // last day, 23:59:59.999
 
-Week handling follows the active locale —
-:cpp:func:`globalLocale <polycpp::moment::globalLocale>` switches
-the first day, and :cpp:member:`WeekConfig::dow
-<polycpp::moment::WeekConfig::dow>` inside a custom
-:cpp:class:`LocaleData <polycpp::moment::LocaleData>` picks the
+Week handling follows the moment's locale. Use
+:cpp:func:`Moment::locale <polycpp::moment::Moment::locale>` for one
+value, or :cpp:func:`globalLocale <polycpp::moment::globalLocale>`
+before construction to change the default captured by new moments.
+The :cpp:member:`WeekConfig::dow
+<polycpp::moment::WeekConfig::dow>` field in
+:cpp:class:`LocaleData <polycpp::moment::LocaleData>` controls the
 day-of-week index.
 
 For ISO-weeks specifically, ``startOf("isoWeek")`` is independent of

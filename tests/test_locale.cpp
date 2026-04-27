@@ -6,6 +6,7 @@
 #include <polycpp/moment/detail/aggregator.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <variant>
 #include <vector>
@@ -245,6 +246,54 @@ TEST(LocaleTest, ListLocales) {
     EXPECT_TRUE(std::is_sorted(list.begin(), list.end()));
 }
 
+// ── Global month/weekday listers ────────────────────────────────────
+
+TEST(LocaleTest, GlobalMonthListersUseEnglishLocale) {
+    auto full = months();
+    ASSERT_EQ(full.size(), 12U);
+    EXPECT_EQ(full[0], "January");
+    EXPECT_EQ(full[11], "December");
+    EXPECT_EQ(months(0), "January");
+    EXPECT_EQ(months(12), "January");
+    EXPECT_EQ(months(-1), "December");
+
+    auto shortNames = monthsShort();
+    ASSERT_EQ(shortNames.size(), 12U);
+    EXPECT_EQ(shortNames[0], "Jan");
+    EXPECT_EQ(shortNames[11], "Dec");
+    EXPECT_EQ(monthsShort(5), "Jun");
+
+    auto formatted = months("D MMMM");
+    ASSERT_EQ(formatted.size(), 12U);
+    EXPECT_EQ(formatted[2], "March");
+    EXPECT_EQ(months("D MMMM", 2), "March");
+}
+
+TEST(LocaleTest, GlobalWeekdayListersUseEnglishLocale) {
+    auto full = weekdays();
+    ASSERT_EQ(full.size(), 7U);
+    EXPECT_EQ(full[0], "Sunday");
+    EXPECT_EQ(full[6], "Saturday");
+    EXPECT_EQ(weekdays(0), "Sunday");
+    EXPECT_EQ(weekdays(7), "Sunday");
+    EXPECT_EQ(weekdays(-1), "Saturday");
+
+    auto sorted = weekdays(true);
+    ASSERT_EQ(sorted.size(), 7U);
+    EXPECT_EQ(sorted[0], "Sunday");
+    EXPECT_EQ(weekdays(true, 0), "Sunday");
+
+    auto shortNames = weekdaysShort();
+    ASSERT_EQ(shortNames.size(), 7U);
+    EXPECT_EQ(shortNames[0], "Sun");
+    EXPECT_EQ(weekdaysShort(6), "Sat");
+
+    auto minNames = weekdaysMin();
+    ASSERT_EQ(minNames.size(), 7U);
+    EXPECT_EQ(minNames[0], "Su");
+    EXPECT_EQ(weekdaysMin("dddd", 1), "Mo");
+}
+
 // ── Locale fallback ──────────────────────────────────────────────────
 
 TEST(LocaleTest, FallbackToEnForUnknown) {
@@ -278,9 +327,33 @@ TEST(LocaleTest, RelativeTimeThresholdGetSet) {
     relativeTimeThreshold("ss", 50.0);
     EXPECT_DOUBLE_EQ(relativeTimeThreshold("ss"), 50.0);
 
+    // Moment.js keeps ss in sync when the seconds threshold changes.
+    relativeTimeThreshold("s", 60.0);
+    EXPECT_DOUBLE_EQ(relativeTimeThreshold("s"), 60.0);
+    EXPECT_DOUBLE_EQ(relativeTimeThreshold("ss"), 59.0);
+
     // Restore default
+    relativeTimeThreshold("s", 45.0);
     relativeTimeThreshold("ss", 44.0);
+    EXPECT_DOUBLE_EQ(relativeTimeThreshold("s"), 45.0);
     EXPECT_DOUBLE_EQ(relativeTimeThreshold("ss"), 44.0);
+}
+
+TEST(LocaleTest, RelativeTimeRoundingGetSet) {
+    auto previous = relativeTimeRounding();
+
+    EXPECT_EQ(static_cast<int>(previous(1.5)), 2);
+    EXPECT_FALSE(relativeTimeRounding(RelativeTimeRoundingFn{}));
+
+    EXPECT_TRUE(relativeTimeRounding([](double value) {
+        return std::floor(value);
+    }));
+    EXPECT_EQ(duration(DurationInput{.seconds = 90}).humanize(), "a minute");
+    EXPECT_EQ(parse("2024-03-15T00:00:00Z").from(parse("2024-03-15T00:01:30Z")),
+              "a minute ago");
+
+    EXPECT_TRUE(relativeTimeRounding(previous));
+    EXPECT_EQ(duration(DurationInput{.seconds = 90}).humanize(), "2 minutes");
 }
 
 // ── Pre/post format identity ─────────────────────────────────────────

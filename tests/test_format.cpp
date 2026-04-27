@@ -28,6 +28,7 @@ static Moment knownUtc() {
 
 TEST(FormatTest, YearTokens) {
     auto m = knownUtc();
+    EXPECT_EQ(m.format("Y"), "2024");
     EXPECT_EQ(m.format("YYYY"), "2024");
     EXPECT_EQ(m.format("YY"), "24");
 }
@@ -76,6 +77,7 @@ TEST(FormatTest, DayOfYearTokens) {
     // 2024-03-15: Jan(31) + Feb(29, leap year) + 15 = 75
     EXPECT_EQ(m.format("DDD"), "75");
     EXPECT_EQ(m.format("DDDD"), "075");
+    EXPECT_EQ(m.format("DDDo"), "75th");
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -216,6 +218,8 @@ TEST(FormatTest, TimezoneTokensUtc) {
     auto m = knownUtc();
     EXPECT_EQ(m.format("Z"), "+00:00");
     EXPECT_EQ(m.format("ZZ"), "+0000");
+    EXPECT_EQ(m.format("z"), "UTC");
+    EXPECT_EQ(m.format("zz"), "Coordinated Universal Time");
 }
 
 TEST(FormatTest, TimezoneTokensOffset) {
@@ -250,6 +254,36 @@ TEST(FormatTest, UnixTimestampSecondsToken) {
 }
 
 // ═════════════════════════════════════════════════════════════════════
+// Era tokens
+// ═════════════════════════════════════════════════════════════════════
+
+TEST(FormatTest, EnglishEraTokens) {
+    auto m = utcFromDate(2024, 3, 27, 9, 0, 0);
+    EXPECT_EQ(m.eraName(), "Anno Domini");
+    EXPECT_EQ(m.eraNarrow(), "AD");
+    EXPECT_EQ(m.eraAbbr(), "AD");
+    EXPECT_EQ(m.eraYear(), 2024);
+    EXPECT_EQ(m.format("N NN NNN NNNN NNNNN y yy yyy yyyy yo"),
+              "AD AD AD Anno Domini AD 2024 2024 2024 2024 2024th");
+}
+
+TEST(FormatTest, EnglishBeforeChristEraTokens) {
+    auto m = utcFromDate(0, 11, 31, 0, 0, 0);
+    EXPECT_EQ(m.eraName(), "Before Christ");
+    EXPECT_EQ(m.eraAbbr(), "BC");
+    EXPECT_EQ(m.eraYear(), 1);
+    EXPECT_EQ(m.format("NNNN y yy yyyy yo"), "Before Christ 1 01 0001 1st");
+}
+
+TEST(FormatTest, InvalidMomentEraAccessors) {
+    auto m = invalid();
+    EXPECT_EQ(m.eraName(), "");
+    EXPECT_EQ(m.eraNarrow(), "");
+    EXPECT_EQ(m.eraAbbr(), "");
+    EXPECT_EQ(m.eraYear(), 0);
+}
+
+// ═════════════════════════════════════════════════════════════════════
 // Escaped text
 // ═════════════════════════════════════════════════════════════════════
 
@@ -267,6 +301,11 @@ TEST(FormatTest, EscapedTextWithTokenChars) {
 TEST(FormatTest, MultipleBrackets) {
     auto m = knownUtc();
     EXPECT_EQ(m.format("[Date: ]YYYY-MM-DD"), "Date: 2024-03-15");
+}
+
+TEST(FormatTest, BackslashEscapesNextFormatCharacter) {
+    auto m = knownUtc();
+    EXPECT_EQ(m.format("\\Y YYYY"), "Y 2024");
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -410,6 +449,9 @@ TEST(FormatTest, UnixMethod) {
 TEST(FormatTest, IsoWeekYearTokens) {
     auto m = knownUtc();
     EXPECT_EQ(m.format("GGGG"), "2024");
+    EXPECT_EQ(m.format("GGGGG"), "02024");
+    EXPECT_EQ(m.format("gggg"), "2024");
+    EXPECT_EQ(m.format("ggggg"), "02024");
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -430,4 +472,28 @@ TEST(FormatTest, MixedLiteralsAndTokens) {
     auto m = knownUtc();
     EXPECT_EQ(m.format("YYYY/MM/DD"), "2024/03/15");
     EXPECT_EQ(m.format("HH:mm:ss.SSS"), "14:30:45.123");
+}
+
+TEST(FormatTest, Html5FormatConstants) {
+    auto m = knownUtc();
+
+    EXPECT_STREQ(HTML5_FMT::DATETIME_LOCAL, "YYYY-MM-DDTHH:mm");
+    EXPECT_STREQ(HTML5_FMT::DATETIME_LOCAL_SECONDS, "YYYY-MM-DDTHH:mm:ss");
+    EXPECT_STREQ(HTML5_FMT::DATETIME_LOCAL_MS, "YYYY-MM-DDTHH:mm:ss.SSS");
+    EXPECT_STREQ(HTML5_FMT::DATE, "YYYY-MM-DD");
+    EXPECT_STREQ(HTML5_FMT::TIME, "HH:mm");
+    EXPECT_STREQ(HTML5_FMT::TIME_SECONDS, "HH:mm:ss");
+    EXPECT_STREQ(HTML5_FMT::TIME_MS, "HH:mm:ss.SSS");
+    EXPECT_STREQ(HTML5_FMT::WEEK, "GGGG-[W]WW");
+    EXPECT_STREQ(HTML5_FMT::MONTH, "YYYY-MM");
+
+    EXPECT_EQ(m.format(HTML5_FMT::DATETIME_LOCAL), "2024-03-15T14:30");
+    EXPECT_EQ(m.format(HTML5_FMT::DATETIME_LOCAL_SECONDS), "2024-03-15T14:30:45");
+    EXPECT_EQ(m.format(HTML5_FMT::DATETIME_LOCAL_MS), "2024-03-15T14:30:45.123");
+    EXPECT_EQ(m.format(HTML5_FMT::DATE), "2024-03-15");
+    EXPECT_EQ(m.format(HTML5_FMT::TIME), "14:30");
+    EXPECT_EQ(m.format(HTML5_FMT::TIME_SECONDS), "14:30:45");
+    EXPECT_EQ(m.format(HTML5_FMT::TIME_MS), "14:30:45.123");
+    EXPECT_EQ(m.format(HTML5_FMT::WEEK), "2024-W11");
+    EXPECT_EQ(m.format(html5_fmt::MONTH), "2024-03");
 }
