@@ -8,7 +8,7 @@ strings, components, or timestamps; manipulate years, months, days, or
 durations; format with Moment tokens or locale macros; humanize relative
 time; and round-trip through JSON.
 
-Upstream Moment.js source is maintained at
+This C++ port is based on the upstream Moment.js project,
 `moment/moment <https://github.com/moment/moment>`_; the npm package
 name is ``moment``.
 
