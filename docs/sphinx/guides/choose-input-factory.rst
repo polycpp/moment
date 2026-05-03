@@ -22,16 +22,21 @@ your source data instead of relying on a single overloaded constructor.
      - Captures the current instant in UTC mode.
    * - ISO 8601, RFC 2822, or deterministic date string
      - :cpp:func:`parse(input) <polycpp::moment::parse>`
-     - Auto-detects supported string formats and returns invalid on failure.
+     - Auto-detects supported string formats, preserves explicit numeric
+       offsets, treats no-offset input as local time, and returns invalid on
+       failure.
    * - Known custom format
      - :cpp:func:`parse(input, format, strict) <polycpp::moment::parse>`
      - Keeps validation tied to the exact token pattern you expected.
-   * - String that should become UTC
+   * - No-offset string that should be interpreted as UTC
      - :cpp:func:`utcFromString <polycpp::moment::utcFromString>`
-     - Converts the parsed instant to UTC output mode.
+     - Treats no-offset parsed input as UTC. Explicit offsets stay
+       fixed-offset; call ``.utc()`` afterwards when every result must render
+       with ``Z``.
    * - String whose fixed offset must be preserved
      - :cpp:func:`parseZone <polycpp::moment::parseZone>`
-     - Keeps the parsed ``+HH:mm`` or ``-HH:mm`` offset instead of normalizing display to UTC/local time.
+     - Keeps the parsed ``+HH:mm`` or ``-HH:mm`` offset and assumes UTC when
+       no offset is present.
    * - Year/month/day components
      - :cpp:func:`fromDate <polycpp::moment::fromDate>` or :cpp:func:`utcFromDate <polycpp::moment::utcFromDate>`
      - Avoids string parsing when components are already structured.
@@ -101,8 +106,11 @@ Rules of thumb
 
 - Use ``parse`` for broad accepted input and ``parse(..., true)`` for
   exact input.
-- Use ``utcFrom...`` when later formatting should default to UTC.
-- Use ``parseZone`` when the source offset is meaningful to the user.
+- Use ``utcFrom...`` for component, timestamp, or no-offset string
+  inputs that should default to UTC.
+- Use ``parse`` or ``parseZone`` when the source offset is meaningful
+  to the user; use ``parseZone`` when no-offset input should become
+  UTC/fixed offset ``+00:00`` instead of local time.
 - Use component or object factories when your data is already
   structured; they make month indexing and missing defaults explicit.
 - Use ``JsonValue`` overloads when input is already in polycpp's

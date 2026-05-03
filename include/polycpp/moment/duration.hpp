@@ -30,23 +30,23 @@ struct RelativeTimeThresholds;
  * @since 1.0.0
  */
 struct DurationInput {
-    int years = 0;
-    int months = 0;
-    int weeks = 0;
-    int days = 0;
-    int hours = 0;
-    int minutes = 0;
-    int seconds = 0;
-    int milliseconds = 0;
+    int years = 0;        ///< Year component; converted to 12 months each.
+    int months = 0;       ///< Month component.
+    int weeks = 0;        ///< Week component; converted to 7 days each.
+    int days = 0;         ///< Day component.
+    int hours = 0;        ///< Hour component.
+    int minutes = 0;      ///< Minute component.
+    int seconds = 0;      ///< Second component.
+    int milliseconds = 0; ///< Millisecond component.
 };
 
 /**
  * @brief A mutable time duration, inspired by Moment.js Duration.
  *
- * Internally stores three aggregate values (_months, _days, _milliseconds)
+ * Internally stores three aggregate values (`_months`, `_days`, `_milliseconds`)
  * following the Moment.js approach, then "bubbles" them into individual
- * component fields (years_, months_, days_, hours_, minutes_, seconds_,
- * milliseconds_) for the component getters.
+ * component fields (`years_`, `months_`, `days_`, `hours_`, `minutes_`,
+ * `seconds_`, `milliseconds_`) for the component getters.
  *
  * @since 1.0.0
  */
@@ -95,10 +95,12 @@ public:
      */
     explicit Duration(const polycpp::JsonValue& value);
 
-    /// @brief Create a deep copy.
+    /// @brief Create a copy of this duration.
+    /// @return A duration with the same components, validity state, and locale.
     Duration clone() const;
 
-    /// @brief Make all components positive (absolute value).
+    /// @brief Make all raw duration buckets positive.
+    /// @return `*this` for chaining.
     Duration& abs();
 
     // -- Arithmetic (mutate in-place, chainable) --
@@ -119,15 +121,25 @@ public:
 
     /**
      * @brief Human-readable description of this duration.
+     *
+     * Uses this duration's locale and the process-global relative-time
+     * thresholds and rounding function.
+     *
      * @param withSuffix If true, wrap with "in ..." / "... ago".
      * @return A human-readable string like "a few seconds" or "2 hours".
+     * @see relativeTimeThreshold()
+     * @see relativeTimeRounding()
      */
     std::string humanize(bool withSuffix = false) const;
 
     /**
      * @brief Human-readable description with per-call threshold overrides.
+     *
+     * Empty threshold fields fall back to the process-global threshold values.
+     *
      * @param thresholds Relative-time threshold overrides for this call.
      * @return A human-readable string like "a few seconds" or "2 hours".
+     * @see RelativeTimeThresholds
      */
     std::string humanize(const RelativeTimeThresholds& thresholds) const;
 
@@ -136,47 +148,89 @@ public:
      * @param withSuffix If true, wrap with "in ..." / "... ago".
      * @param thresholds Relative-time threshold overrides for this call.
      * @return A human-readable string like "in a minute".
+     * @see RelativeTimeThresholds
      */
     std::string humanize(bool withSuffix, const RelativeTimeThresholds& thresholds) const;
 
     // -- Component getters (the bubbled component, not the total) --
 
+    /// @brief Get the bubbled year component.
+    /// @return Year component, or 0 when invalid.
     int years() const;
+    /// @brief Get the bubbled month component.
+    /// @return Month component, or 0 when invalid.
     int months() const;
+    /// @brief Get the bubbled day component.
+    /// @return Day component, or 0 when invalid.
     int days() const;
-    int weeks() const;       ///< floor(days / 7)
+    /// @brief Get whole weeks from the bubbled day component.
+    /// @return `floor(days() / 7)`, or 0 when invalid.
+    int weeks() const;
+    /// @brief Get the bubbled hour component.
+    /// @return Hour component, or 0 when invalid.
     int hours() const;
+    /// @brief Get the bubbled minute component.
+    /// @return Minute component, or 0 when invalid.
     int minutes() const;
+    /// @brief Get the bubbled second component.
+    /// @return Second component, or 0 when invalid.
     int seconds() const;
+    /// @brief Get the bubbled millisecond component.
+    /// @return Millisecond component, or 0 when invalid.
     int milliseconds() const;
 
     /// @brief Generic component getter by unit string.
+    /// @param unit Moment-style unit name or alias.
+    /// @return The matching bubbled component, or 0 for invalid input.
     int get(const std::string& unit) const;
 
     // -- Total conversion (entire duration expressed in one unit) --
 
+    /// @brief Convert the entire duration to milliseconds.
+    /// @return Total milliseconds, or 0 when invalid.
     double asMilliseconds() const;
+    /// @brief Convert the entire duration to seconds.
+    /// @return Total seconds, or 0 when invalid.
     double asSeconds() const;
+    /// @brief Convert the entire duration to minutes.
+    /// @return Total minutes, or 0 when invalid.
     double asMinutes() const;
+    /// @brief Convert the entire duration to hours.
+    /// @return Total hours, or 0 when invalid.
     double asHours() const;
+    /// @brief Convert the entire duration to days.
+    /// @return Total days, or 0 when invalid.
     double asDays() const;
+    /// @brief Convert the entire duration to weeks.
+    /// @return Total weeks, or 0 when invalid.
     double asWeeks() const;
+    /// @brief Convert the entire duration to quarters.
+    /// @return Total quarters, or 0 when invalid.
     double asQuarters() const;
+    /// @brief Convert the entire duration to months.
+    /// @return Total months, or 0 when invalid.
     double asMonths() const;
+    /// @brief Convert the entire duration to years.
+    /// @return Total years, or 0 when invalid.
     double asYears() const;
 
     /// @brief Generic total-conversion by unit string.
+    /// @param unit Moment-style unit name or alias.
+    /// @return Entire duration expressed in the requested unit, or 0 for invalid input.
     double as(const std::string& unit) const;
 
     // -- Serialization --
 
-    /// @brief ISO 8601 duration string, e.g. "P1Y2M3DT4H5M6S".
+    /// @brief Serialize as an ISO 8601 duration string.
+    /// @return ISO 8601 duration string, e.g. "P1Y2M3DT4H5M6S".
     std::string toISOString() const;
 
-    /// @brief Alias for toISOString() (JSON serialization).
+    /// @brief Serialize for JSON.
+    /// @return The same string as toISOString().
     std::string toJSON() const;
 
-    /// @brief Alias for toISOString(), matching Moment.js duration display.
+    /// @brief Serialize for string display.
+    /// @return The same string as toISOString(), matching Moment.js duration display.
     std::string toString() const;
 
     /**
@@ -188,23 +242,29 @@ public:
      */
     polycpp::JsonObject toObject() const;
 
-    /// @brief Total milliseconds as integer (same as asMilliseconds cast).
+    /// @brief Total milliseconds as integer.
+    /// @return The same value as asMilliseconds() cast to int64_t.
     int64_t valueOf() const;
 
     // -- Validation --
 
-    /// @brief Returns true if this duration was constructed from valid input.
+    /// @brief Check whether this duration was constructed from valid input.
+    /// @return true when the duration is valid.
     bool isValid() const;
 
     // -- Locale --
 
     /// @brief Get the locale key for this duration.
+    /// @return Locale key used by humanize().
     std::string locale() const;
 
     /// @brief Set the locale key for this duration.
+    /// @param key Locale key to use for humanize() and invalid serialization text.
+    /// @return `*this` for chaining.
     Duration& locale(const std::string& key);
 
     /// @brief Get this duration's locale data.
+    /// @return Locale data for locale(), falling back through localeData().
     const LocaleData& localeData() const;
 
 private:

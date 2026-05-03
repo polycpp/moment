@@ -13,6 +13,17 @@
 #include <polycpp/core/json.hpp>
 
 namespace polycpp {
+/**
+ * @namespace polycpp::moment
+ * @brief Moment-style date/time factories, mutable moments, durations, locales,
+ *        and unit helpers for polycpp.
+ *
+ * Public APIs are grouped in the Sphinx reference by task. Namespaces and
+ * headers under `detail` are implementation-only and are intentionally omitted
+ * from the generated API pages.
+ *
+ * @since 1.0.0
+ */
 namespace moment {
 
 // Forward declaration — Duration will be implemented in a later plan.
@@ -522,9 +533,10 @@ public:
 
     // ── Friends — parse functions need access to internal state ────────
 
-    /// @brief Access helper for parse/format implementation details.
+    /// @cond INTERNAL
     struct InternalAccess;
     friend struct InternalAccess;
+    /// @endcond
 
 private:
     // ── Internal helpers ─────────────────────────────────────────────
@@ -558,6 +570,7 @@ private:
     MomentCreationData creation_data_;
 };
 
+/// @cond INTERNAL
 /**
  * @brief Provides controlled access to Moment's private members for
  *        factory functions and formatting internals.
@@ -623,6 +636,7 @@ struct Moment::InternalAccess {
         return m;
     }
 };
+/// @endcond
 
 // ── Factory functions ────────────────────────────────────────────────
 
@@ -755,9 +769,14 @@ Moment fromDate(int year, int month, int day = 1, int hour = 0,
 Moment utcNow();
 
 /**
- * @brief Parse a date/time string in UTC mode.
+ * @brief Parse a date/time string, treating no-offset input as UTC.
+ *
+ * Offset-bearing input keeps its parsed fixed offset. If every successful
+ * result must render in UTC with a `Z` offset, call Moment::utc() after this
+ * factory.
+ *
  * @param input The date/time string to parse.
- * @return A UTC Moment from the parsed date/time, or an invalid Moment.
+ * @return A Moment from the parsed date/time, or an invalid Moment.
  * @since 1.0.0
  */
 Moment utcFromString(const std::string& input);
@@ -840,19 +859,24 @@ Moment parseZone(const std::string& input, const std::string& format);
 int parseTwoDigitYear(const std::string& input);
 
 /**
- * @brief Create an invalid Moment.
+ * @brief Create an invalid Moment with `userInvalidated` parsing flag set.
  *
  * The returned Moment has isValid() == false and will format as "Invalid date".
  *
  * @return An invalid Moment.
+ * @see MomentParsingFlags
  * @since 1.0.0
  */
 Moment invalid();
 
 /**
  * @brief Create an invalid Moment with explicit parsing flags.
+ *
+ * The provided flags are attached to parsingFlags() unchanged.
+ *
  * @param flags Diagnostic parsing flags to attach.
  * @return An invalid Moment.
+ * @see MomentParsingFlags
  * @since 1.0.0
  */
 Moment invalid(const MomentParsingFlags& flags);

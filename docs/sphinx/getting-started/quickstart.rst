@@ -3,10 +3,11 @@ Quickstart
 
 This page walks through a minimal moment program end-to-end. Copy the
 snippet, run it, then jump to :doc:`../tutorials/index` for task-oriented
-walkthroughs or :doc:`../api/index` for the full reference.
+walkthroughs or :doc:`../api/index` for the full reference. If you are new
+to Moment-style conventions, read :doc:`core-model` after this example.
 
-We'll parse an ISO 8601 string, move forward by one business-ish
-week, format with a mix of macro and raw tokens, and print the result
+We'll parse an ISO 8601 string, move forward by one week, format with
+a mix of macro and raw tokens, and print the result
 relative to the current wall clock — enough to hit the parser,
 :cpp:class:`Moment <polycpp::moment::Moment>` manipulation, formatting,
 and relative-time humanisation.
@@ -33,7 +34,8 @@ Full example
                        .humanize(false) << '\n';
    }
 
-Compile it with the same CMake wiring from :doc:`installation`:
+Compile it with the CMake pattern from :doc:`installation`; if you name
+the executable ``my_app``:
 
 .. code-block:: bash
 
@@ -82,6 +84,7 @@ What just happened
 Next steps
 ----------
 
+- :doc:`core-model` — mutability, invalid values, unit names, and time modes.
 - :doc:`../tutorials/index` — step-by-step walkthroughs of common tasks.
 - :doc:`../guides/choose-input-factory` — choose the right parser or factory.
 - :doc:`../guides/index` — short how-tos for specific problems.

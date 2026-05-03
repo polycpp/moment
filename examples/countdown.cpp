@@ -2,7 +2,7 @@
 //
 //   $ ./countdown
 //   Launch is at: Saturday, September 19, 2026 9:00 AM
-//   That's in 4 months
+//   That's in <relative time>
 
 #include <iostream>
 #include <polycpp/moment/moment.hpp>

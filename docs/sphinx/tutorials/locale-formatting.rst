@@ -75,6 +75,13 @@ Existing moments keep their own locale key. Use
 :cpp:func:`Moment::locale <polycpp::moment::Moment::locale>` when
 you need to switch an already-created value.
 
+The locale registry protects reads and writes with a mutex, so the
+API is safe to call from multiple threads at the storage level.
+``globalLocale`` is still process-wide mutable state: a successful
+write affects new moments and durations created by any thread after
+the switch. Configure it at startup or another controlled
+initialization point, not around individual requests.
+
 Step 4 — tweak relative-time thresholds
 ---------------------------------------
 
@@ -89,6 +96,9 @@ ago"``) are global, not per-locale:
 Set these once at startup if your application wants non-default
 humanize boundaries. For one-off duration formatting, pass a
 ``RelativeTimeThresholds`` value to ``Duration::humanize`` instead.
+The same process-wide guidance applies to
+:cpp:func:`relativeTimeRounding
+<polycpp::moment::relativeTimeRounding>`.
 
 Step 5 — list localized month and weekday names
 -----------------------------------------------
@@ -126,12 +136,13 @@ What you learned
 - :cpp:func:`Moment::locale <polycpp::moment::Moment::locale>` is the
   right tool for one formatted value.
 - :cpp:func:`globalLocale <polycpp::moment::globalLocale>` sets the
-  default for newly-created moments and durations.
+  process-wide default for newly-created moments and durations.
 - Standalone listers such as :cpp:func:`months
   <polycpp::moment::months>` and :cpp:func:`weekdaysMin
   <polycpp::moment::weekdaysMin>` are useful for UI and report labels.
-- Relative-time thresholds are global and independent of the active
-  locale.
+- Relative-time thresholds and rounding are mutex-protected but
+  process-wide, so set them at startup or a controlled initialization
+  point.
 
 Next: :doc:`durations-and-diff` pairs :cpp:class:`Duration
 <polycpp::moment::Duration>` with :cpp:func:`Moment::diff

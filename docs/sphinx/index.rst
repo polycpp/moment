@@ -65,6 +65,9 @@ Find your use case
    * - Add Moment-style date/time handling to a project
      - :doc:`getting-started/installation`
      - CMake target ``polycpp::moment``
+   * - Understand Moment-style C++ conventions
+     - :doc:`getting-started/core-model`
+     - ``clone``, ``isValid``, ``date`` vs ``day``, modes
    * - Parse user input safely
      - :doc:`guides/choose-input-factory`
      - ``parse``, ``utcFromString``, ``parseZone``, ``isValid``
@@ -101,14 +104,14 @@ Getting started
    FetchContent_Declare(
        polycpp_moment
        GIT_REPOSITORY https://github.com/polycpp/moment.git
-       GIT_TAG        master
+       GIT_TAG        <commit-or-release-tag>
    )
    FetchContent_MakeAvailable(polycpp_moment)
 
    add_executable(my_app main.cpp)
    target_link_libraries(my_app PRIVATE polycpp::moment)
 
-:doc:`Installation <getting-started/installation>` · :doc:`Quickstart <getting-started/quickstart>` · :doc:`How-to guides <guides/index>` · :doc:`Tutorials <tutorials/index>` · :doc:`Examples <examples/index>` · :doc:`API reference <api/index>`
+:doc:`Installation <getting-started/installation>` · :doc:`Quickstart <getting-started/quickstart>` · :doc:`Core model <getting-started/core-model>` · :doc:`How-to guides <guides/index>` · :doc:`Tutorials <tutorials/index>` · :doc:`Examples <examples/index>` · :doc:`API reference <api/index>`
 
 .. toctree::
    :hidden:
@@ -116,6 +119,7 @@ Getting started
 
    getting-started/installation
    getting-started/quickstart
+   getting-started/core-model
 
 .. toctree::
    :hidden:

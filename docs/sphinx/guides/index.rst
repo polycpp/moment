@@ -23,6 +23,9 @@ Choose by task
    * - Check user or network input before using it
      - :doc:`validate-input`
      - ``isValid``, ``invalid``, parsing flags
+   * - Port Moment.js usage to typed C++
+     - :doc:`compatibility`
+     - factories, zero-based months, locales, time modes
    * - Store values in a stable string form
      - :doc:`iso-roundtrip`
      - ``toISOString``, ``toJSON``
@@ -39,6 +42,7 @@ Choose by task
    choose-input-factory
    parse-strict
    validate-input
+   compatibility
    iso-roundtrip
    switch-locale
    start-of-week

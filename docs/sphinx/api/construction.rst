@@ -56,7 +56,8 @@ From timestamps
 Special values
 --------------
 
-.. doxygenfunction:: polycpp::moment::invalid
+.. doxygenfunction:: polycpp::moment::invalid()
+.. doxygenfunction:: polycpp::moment::invalid(const MomentParsingFlags&)
 
 Aggregation
 -----------

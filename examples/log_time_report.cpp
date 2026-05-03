@@ -1,7 +1,7 @@
 // Sum a list of ISO 8601 durations on stdin, report the total humanised.
 //
 //   $ printf 'PT1H30M\nPT45M\nPT2H15M\n' | ./log_time_report
-//   Total: 4 hours (components: 4h 30m 0s)
+//   Total: 5 hours (components: 4h 30m 0s)
 
 #include <iostream>
 #include <string>
